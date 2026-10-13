@@ -1,0 +1,16 @@
+@import "tailwindcss";
+
+@theme {
+  --color-primary: #1565A9;
+  --color-primary-dark: #104c80;
+  --color-secondary: #F28C28;
+  --color-secondary-dark: #d67a21;
+}
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+body {
+  font-family: 'Inter', sans-serif;
+  background-color: #f3f4f6; /* Tailwind gray-100 */
+  color: #1f2937; /* Tailwind gray-800 */
+}
