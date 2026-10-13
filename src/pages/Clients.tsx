@@ -1,146 +1,225 @@
-import React from "react"
-import { Card, Button, Input, Badge } from "../components/ui"
-import { Search, Plus, ExternalLink } from "lucide-react"
-
-const mockClients = [
-  {
-    id: "1",
-    name: "Martín Pérez",
-    dni: "32.456.789",
-    phone: "351-555-4321",
-    email: "martin.p@email.com",
-    orders: 3,
-    totalSpent: 245000,
-    lastVisit: "24/10/2023",
-  },
-  {
-    id: "2",
-    name: "Laura Gómez",
-    dni: "28.123.456",
-    phone: "351-444-9876",
-    email: "laurag@email.com",
-    orders: 1,
-    totalSpent: 15000,
-    lastVisit: "23/10/2023",
-  },
-  {
-    id: "3",
-    name: "Carlos Ruiz",
-    dni: "40.987.654",
-    phone: "351-777-1122",
-    email: "-",
-    orders: 5,
-    totalSpent: 850000,
-    lastVisit: "23/10/2023",
-  },
-  {
-    id: "4",
-    name: "Ana Martínez",
-    dni: "35.654.321",
-    phone: "351-222-3344",
-    email: "ana.m@email.com",
-    orders: 2,
-    totalSpent: 45000,
-    lastVisit: "22/10/2023",
-  },
-]
+import { useCallback, useEffect, useState } from "react"
+import { ExternalLink, Plus, Search } from "lucide-react"
+import Modal from "../components/Modal"
+import {
+  Alert,
+  Badge,
+  Button,
+  Card,
+  EmptyState,
+  Input,
+  Label,
+  Loading,
+} from "../components/ui"
+import { api, money, queryString, shortDate } from "../services/api"
+import type { Client } from "../types"
+import { useAuth } from "../context/AuthContext"
 
 export default function Clients() {
+  const { user } = useAuth()
+  const [clients, setClients] = useState<Client[]>([])
+  const [search, setSearch] = useState("")
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState("")
+  const [newOpen, setNewOpen] = useState(false)
+  const [selected, setSelected] = useState<Client | null>(null)
+  const load = useCallback(async () => {
+    setLoading(true)
+    try {
+      setClients(
+        (await api<{ data: Client[] }>(`/clients${queryString({ search })}`))
+          .data,
+      )
+      setError("")
+    } catch (reason) {
+      setError(
+        reason instanceof Error
+          ? reason.message
+          : "No se pudieron cargar los clientes",
+      )
+    } finally {
+      setLoading(false)
+    }
+  }, [search])
+  useEffect(() => {
+    const timer = setTimeout(load, 250)
+    return () => clearTimeout(timer)
+  }, [load])
+  const create = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    const data = new FormData(event.currentTarget)
+    try {
+      await api("/clients", {
+        method: "POST",
+        body: JSON.stringify(Object.fromEntries(data)),
+      })
+      setNewOpen(false)
+      await load()
+    } catch (reason) {
+      setError(
+        reason instanceof Error
+          ? reason.message
+          : "No se pudo crear el cliente",
+      )
+    }
+  }
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Clientes</h1>
+          <h1 className="text-2xl font-bold">Clientes</h1>
           <p className="mt-1 text-sm text-gray-500">
             Base de datos de clientes e historial.
           </p>
         </div>
-        <Button icon={Plus}>Nuevo Cliente</Button>
+        {user?.role !== "TECH" && (
+          <Button icon={Plus} onClick={() => setNewOpen(true)}>
+            Nuevo cliente
+          </Button>
+        )}
       </div>
-
+      {error && <Alert>{error}</Alert>}
       <Card>
-        <div className="p-4 border-b border-gray-200">
+        <div className="p-4 border-b">
           <div className="relative max-w-md">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <Search className="h-4 w-4 text-gray-400" />
-            </div>
+            <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
             <Input
-              type="text"
-              placeholder="Buscar por nombre, DNI o teléfono..."
+              type="search"
+              aria-label="Buscar clientes"
               className="pl-10"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Nombre, DNI o teléfono…"
             />
           </div>
         </div>
-
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Cliente
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Contacto
-                </th>
-                <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Historial
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Última Visita
-                </th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Acciones
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {mockClients.map((client) => (
-                <tr key={client.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex flex-col">
-                      <span className="text-sm font-medium text-gray-900">
-                        {client.name}
-                      </span>
-                      <span className="text-xs text-gray-500">
-                        DNI: {client.dni}
-                      </span>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex flex-col">
-                      <span className="text-sm text-gray-900">
-                        {client.phone}
-                      </span>
-                      <span className="text-xs text-gray-500">
-                        {client.email}
-                      </span>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-center">
-                    <div className="flex flex-col items-center">
-                      <Badge variant="blue">{client.orders} órdenes</Badge>
-                      <span className="text-xs text-gray-500 mt-1">
-                        $ {client.totalSpent.toLocaleString("es-AR")}
-                      </span>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {client.lastVisit}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                    <Button
-                      variant="ghost"
-                      className="px-2 py-1 text-primary hover:text-primary-dark"
+        {loading ? (
+          <Loading />
+        ) : !clients.length ? (
+          <EmptyState>No se encontraron clientes.</EmptyState>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y">
+              <thead className="bg-gray-50">
+                <tr>
+                  {[
+                    "Cliente",
+                    "Contacto",
+                    "Historial",
+                    "Última visita",
+                    "Acciones",
+                  ].map((head) => (
+                    <th
+                      key={head}
+                      className="px-6 py-3 text-left text-xs text-gray-500 uppercase"
                     >
-                      Ver Ficha <ExternalLink className="w-4 h-4 ml-1 inline" />
-                    </Button>
-                  </td>
+                      {head}
+                    </th>
+                  ))}
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody className="divide-y">
+                {clients.map((client) => (
+                  <tr key={client.id}>
+                    <td className="px-6 py-4">
+                      <div className="font-medium text-sm">{client.name}</div>
+                      <div className="text-xs text-gray-500">
+                        DNI: {client.dni || "—"}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="text-sm">{client.phone}</div>
+                      <div className="text-xs text-gray-500">
+                        {client.email || "—"}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <Badge variant="blue">{client.orders} órdenes</Badge>
+                      <div className="text-xs text-gray-500 mt-1">
+                        {money(client.totalSpent)}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 text-sm text-gray-500">
+                      {shortDate(client.lastVisit)}
+                    </td>
+                    <td className="px-6 py-4">
+                      <Button
+                        variant="ghost"
+                        className="text-primary"
+                        onClick={() => setSelected(client)}
+                      >
+                        Ver ficha <ExternalLink className="w-4 h-4 ml-1" />
+                      </Button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </Card>
+      {newOpen && (
+        <Modal title="Nuevo cliente" onClose={() => setNewOpen(false)}>
+          <form onSubmit={create} className="space-y-4">
+            <div>
+              <Label htmlFor="new-name">Nombre y apellido</Label>
+              <Input id="new-name" name="name" required />
+            </div>
+            <div>
+              <Label htmlFor="new-dni">DNI</Label>
+              <Input id="new-dni" name="dni" />
+            </div>
+            <div>
+              <Label htmlFor="new-phone">Teléfono</Label>
+              <Input id="new-phone" name="phone" required />
+            </div>
+            <div>
+              <Label htmlFor="new-email">Correo electrónico</Label>
+              <Input id="new-email" name="email" type="email" />
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setNewOpen(false)}
+              >
+                Cancelar
+              </Button>
+              <Button type="submit">Guardar</Button>
+            </div>
+          </form>
+        </Modal>
+      )}
+      {selected && (
+        <Modal title="Ficha del cliente" onClose={() => setSelected(null)}>
+          <dl className="grid grid-cols-2 gap-4 text-sm">
+            <div>
+              <dt className="text-gray-500">Nombre</dt>
+              <dd className="font-medium">{selected.name}</dd>
+            </div>
+            <div>
+              <dt className="text-gray-500">DNI</dt>
+              <dd>{selected.dni || "—"}</dd>
+            </div>
+            <div>
+              <dt className="text-gray-500">Teléfono</dt>
+              <dd>{selected.phone}</dd>
+            </div>
+            <div>
+              <dt className="text-gray-500">Correo</dt>
+              <dd>{selected.email || "—"}</dd>
+            </div>
+            <div>
+              <dt className="text-gray-500">Órdenes</dt>
+              <dd>{selected.orders}</dd>
+            </div>
+            <div>
+              <dt className="text-gray-500">Total registrado</dt>
+              <dd>{money(selected.totalSpent)}</dd>
+            </div>
+          </dl>
+        </Modal>
+      )}
     </div>
   )
 }

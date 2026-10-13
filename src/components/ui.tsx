@@ -117,3 +117,39 @@ export function Label({
     </label>
   )
 }
+
+export function Alert({
+  children,
+  variant = "error",
+}: {
+  children: React.ReactNode
+  variant?: "error" | "success" | "info"
+}) {
+  const styles = {
+    error: "bg-red-50 border-red-500 text-red-700",
+    success: "bg-green-50 border-green-500 text-green-700",
+    info: "bg-blue-50 border-blue-500 text-blue-700",
+  }
+  return (
+    <div
+      role="alert"
+      className={`border-l-4 p-4 rounded-md text-sm ${styles[variant]}`}
+    >
+      {children}
+    </div>
+  )
+}
+
+export function Loading({ label = "Cargando…" }: { label?: string }) {
+  return (
+    <div className="py-12 text-center text-sm text-gray-500" role="status">
+      {label}
+    </div>
+  )
+}
+
+export function EmptyState({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="py-12 text-center text-sm text-gray-500">{children}</div>
+  )
+}

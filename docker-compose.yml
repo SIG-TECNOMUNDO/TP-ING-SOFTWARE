@@ -1,0 +1,19 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: sig_tecnomundo
+      POSTGRES_USER: sig_user
+      POSTGRES_PASSWORD: sig_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - sig_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sig_user -d sig_tecnomundo"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  sig_postgres_data:

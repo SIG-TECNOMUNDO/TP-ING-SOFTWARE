@@ -1,10 +1,12 @@
 {
+  "title": "SIG-Tecnomundo",
+  "language": "es",
   "description": "Streamline inventory management, sales, and technical service operations for Tecnomundo's staff, enhancing efficiency and customer service across branches.",
   "robots": {
     "index": false
   },
   "accessibility": {
-    "addBypassLinks": false,
+    "addBypassLinks": true,
     "ignoreReducedMotion": false
   }
 }
