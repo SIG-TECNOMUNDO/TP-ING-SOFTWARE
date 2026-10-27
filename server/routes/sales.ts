@@ -4,6 +4,8 @@ import { audit } from "../audit.js"
 import { requireAuth, requirePermission } from "../auth/middleware.js"
 import { pool } from "../database/pool.js"
 import { AppError } from "../errors.js"
+import { calculatePayment } from "../domain/payment.js"
+import { recordCashMovement } from "../cash.js"
 import type { AuthRequest } from "../types.js"
 
 export const salesRouter = Router()
@@ -20,6 +22,14 @@ const saleSchema = z.object({
     "mercadolibre",
   ]),
   installments: z.coerce.number().int().min(1).max(24).default(1),
+  cardBrand: z.string().max(50).optional(),
+  cardType: z.string().max(30).optional(),
+  wallet: z.string().max(60).optional(),
+  marketplace: z.object({
+    operationNumber: z.string().min(3).max(80),
+    buyerUsername: z.string().min(2).max(100),
+    shippingType: z.enum(["colecta", "sucursal"]),
+  }).optional(),
   items: z
     .array(
       z.object({
@@ -74,22 +84,30 @@ salesRouter.post(
           price: found.salePrice,
         })
       }
-      const discount = input.paymentMethod === "efectivo" ? subtotal * 0.1 : 0
-      const total = subtotal - discount
+      if (input.paymentMethod === "mercadolibre" && !input.marketplace)
+        throw new AppError(400, "Completá los datos de la operación de Mercado Libre")
+      const pricing = await calculatePayment(db, input.branchId, subtotal, input)
       const saleResult = await db.query<{
         id: string
         number: string
       }>(
-        `INSERT INTO sales (branch_id,client_id,user_id,payment_method,subtotal,discount,total)
-       VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING id,number::text`,
+        `INSERT INTO sales (branch_id,client_id,user_id,payment_method,subtotal,discount,total,card_brand,card_type,wallet,channel,marketplace_operation,marketplace_buyer,marketplace_shipping)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14) RETURNING id,number::text`,
         [
           input.branchId,
           input.clientId ?? null,
           request.user!.id,
           input.paymentMethod,
           subtotal,
-          discount,
-          total,
+          pricing.discount,
+          pricing.total,
+          input.cardBrand ?? null,
+          input.cardType ?? null,
+          input.wallet ?? null,
+          input.marketplace ? "MARKETPLACE" : "STORE",
+          input.marketplace?.operationNumber ?? null,
+          input.marketplace?.buyerUsername ?? null,
+          input.marketplace?.shippingType ?? null,
         ],
       )
       const sale = saleResult.rows[0]!
@@ -121,11 +139,22 @@ salesRouter.post(
       }
       await db.query(
         `INSERT INTO payments (sale_id,method,amount,installments) VALUES ($1,$2,$3,$4)`,
-        [sale.id, input.paymentMethod, total, input.installments],
+        [sale.id, input.paymentMethod, pricing.total, input.installments],
       )
-      await audit(db, request.user!.id, "CREATE", "sale", sale.id, { total })
+      await recordCashMovement(db, {
+        branchId: input.branchId,
+        source: "VENTAS",
+        type: "INCOME",
+        concept: `Venta de mostrador #${sale.number}`,
+        paymentMethod: input.paymentMethod,
+        userId: request.user!.id,
+        amount: pricing.total,
+        referenceType: "sale",
+        referenceId: sale.id,
+      })
+      await audit(db, request.user!.id, "CREATE", "sale", sale.id, { total: pricing.total, adjustmentPercent: pricing.adjustmentPercent })
       await db.query("COMMIT")
-      response.status(201).json({ ...sale, subtotal, discount, total })
+      response.status(201).json({ ...sale, subtotal, ...pricing })
     } catch (error) {
       await db.query("ROLLBACK")
       throw error

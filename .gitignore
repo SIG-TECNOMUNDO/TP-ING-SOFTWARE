@@ -1,17 +1,16 @@
 node_modules/
 dist/
 dist-server/
+/SIG-Tecnomundo Web App Design/
 build/
 .cache/
 .env*
-!.env.example
 .vite/
 vite.config.*.timestamp-*
 *.tsbuildinfo
 *-debug.log*
 logs/
 *.log
-coverage/
 .claude-replay.*
 .tmp-*
 /.figma/design-context/

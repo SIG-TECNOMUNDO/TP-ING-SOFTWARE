@@ -15,6 +15,7 @@ import {
 } from "../domain/service-order.js"
 import { AppError } from "../errors.js"
 import type { AuthRequest } from "../types.js"
+import { recordCashMovement } from "../cash.js"
 
 export const ordersRouter = Router()
 ordersRouter.use(requireAuth)
@@ -34,6 +35,7 @@ const createSchema = z.object({
   reportedIssue: z.string().min(5),
   physicalCondition: z.string().optional(),
   accessories: z.string().optional(),
+  linkedOrderId: z.string().uuid().nullable().optional(),
 })
 
 ordersRouter.get(
@@ -100,13 +102,21 @@ ordersRouter.post(
         )
         clientId = created.rows[0]?.id
       }
+      if (input.linkedOrderId) {
+        const linked = await db.query<{ id: string }>(
+          `SELECT id FROM service_orders WHERE id=$1 AND branch_id=$2`,
+          [input.linkedOrderId, input.branchId],
+        )
+        if (!linked.rows[0])
+          throw new AppError(400, "La orden vinculada no pertenece a esta sucursal")
+      }
       const created = await db.query<{
         id: string
         number: string
       }>(
         `INSERT INTO service_orders (branch_id, client_id, created_by, device_type, brand, model, serial_imei,
-         reported_issue, physical_condition, accessories)
-       VALUES ($1,$2,$3,$4,$5,$6,NULLIF($7,''),$8,NULLIF($9,''),NULLIF($10,'')) RETURNING id, number::text`,
+         reported_issue, physical_condition, accessories, linked_order_id)
+       VALUES ($1,$2,$3,$4,$5,$6,NULLIF($7,''),$8,NULLIF($9,''),NULLIF($10,''),$11) RETURNING id, number::text`,
         [
           input.branchId,
           clientId,
@@ -118,6 +128,7 @@ ordersRouter.post(
           input.reportedIssue,
           input.physicalCondition ?? "",
           input.accessories ?? "",
+          input.linkedOrderId ?? null,
         ],
       )
       const order = created.rows[0]!
@@ -125,7 +136,7 @@ ordersRouter.post(
         `INSERT INTO service_order_status_history (service_order_id, user_id, to_status, note) VALUES ($1,$2,'INGRESADO',$3)`,
         [order.id, request.user!.id, "Orden creada"],
       )
-      await audit(db, request.user!.id, "CREATE", "service_order", order.id)
+      await audit(db, request.user!.id, "CREATE", "service_order", order.id, { linkedOrderId: input.linkedOrderId ?? null })
       await db.query("COMMIT")
       response.status(201).json(order)
     } catch (error) {
@@ -170,6 +181,33 @@ ordersRouter.get(
         parts: parts.rows,
       },
     })
+  },
+)
+
+ordersRouter.patch(
+  "/:id",
+  requirePermission("orders:update"),
+  async (request: AuthRequest, response) => {
+    const id = z.string().uuid().parse(request.params.id)
+    const input = z
+      .object({
+        deviceType: z.string().min(2).max(60),
+        brand: z.string().min(1).max(80),
+        model: z.string().min(1).max(100),
+        serialImei: z.string().max(100).optional(),
+        reportedIssue: z.string().min(5),
+        physicalCondition: z.string().optional(),
+        accessories: z.string().optional(),
+      })
+      .parse(request.body)
+    const result = await pool.query(
+      `UPDATE service_orders SET device_type=$1,brand=$2,model=$3,serial_imei=NULLIF($4,''),reported_issue=$5,physical_condition=NULLIF($6,''),accessories=NULLIF($7,''),updated_at=now()
+       WHERE id=$8 AND ($9::uuid IS NULL OR branch_id=$9)`,
+      [input.deviceType, input.brand, input.model, input.serialImei ?? "", input.reportedIssue, input.physicalCondition ?? "", input.accessories ?? "", id, scopedBranch(request)],
+    )
+    if (!result.rowCount) throw new AppError(404, "Orden no encontrada")
+    await audit(pool, request.user!.id, "UPDATE", "service_order", id, input)
+    response.json({ id })
   },
 )
 
@@ -318,8 +356,9 @@ ordersRouter.post(
       })
       .parse(request.body)
     const branchId = scopedBranch(request)
-    const total = await pool.query<{ amount: number }>(
-      `SELECT (so.labor_cost + COALESCE(sum(sop.quantity*sop.unit_price),0))::float AS amount
+    const total = await pool.query<{ amount: number; branchId: string; number: string }>(
+      `SELECT (so.labor_cost + COALESCE(sum(sop.quantity*sop.unit_price),0))::float AS amount,
+              so.branch_id AS "branchId", so.number::text AS number
      FROM service_orders so LEFT JOIN service_order_parts sop ON sop.service_order_id=so.id
      WHERE so.id=$1 AND ($2::uuid IS NULL OR so.branch_id=$2) GROUP BY so.id`,
       [id, branchId],
@@ -329,6 +368,17 @@ ordersRouter.post(
       `INSERT INTO payments (service_order_id,method,amount,installments) VALUES ($1,$2,$3,$4)`,
       [id, input.method, total.rows[0].amount, input.installments],
     )
+    await recordCashMovement(pool, {
+      branchId: total.rows[0].branchId,
+      source: "SAT",
+      type: "INCOME",
+      concept: `Cobro OT #${total.rows[0].number}`,
+      paymentMethod: input.method,
+      userId: request.user!.id,
+      amount: total.rows[0].amount,
+      referenceType: "service_order",
+      referenceId: id,
+    })
     await audit(pool, request.user!.id, "PAYMENT", "service_order", id, {
       amount: total.rows[0].amount,
     })

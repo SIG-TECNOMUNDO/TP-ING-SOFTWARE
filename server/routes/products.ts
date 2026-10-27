@@ -57,6 +57,41 @@ productsRouter.get(
   },
 )
 
+productsRouter.patch(
+  "/bulk-price",
+  requirePermission("products:write"),
+  async (request: AuthRequest, response) => {
+    const input = z
+      .object({
+        category: z.string().min(1).nullable().optional(),
+        percentage: z.coerce.number().positive().max(1000),
+      })
+      .parse(request.body)
+    const db = await pool.connect()
+    try {
+      await db.query("BEGIN")
+      const result = await db.query<{ id: string }>(
+        `UPDATE products p SET sale_price=ROUND(p.sale_price * (1 + $1 / 100), 2), updated_at=now()
+         FROM categories c WHERE c.id=p.category_id AND p.active=true AND ($2::text IS NULL OR c.name=$2)
+         RETURNING p.id`,
+        [input.percentage, input.category ?? null],
+      )
+      await audit(db, request.user!.id, "BULK_PRICE_UPDATE", "product", null, {
+        category: input.category ?? "all",
+        percentage: input.percentage,
+        affected: result.rowCount ?? 0,
+      })
+      await db.query("COMMIT")
+      response.json({ affected: result.rowCount ?? 0 })
+    } catch (error) {
+      await db.query("ROLLBACK")
+      throw error
+    } finally {
+      db.release()
+    }
+  },
+)
+
 productsRouter.post(
   "/",
   requirePermission("products:write"),

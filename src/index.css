@@ -1,15 +1,15 @@
-@import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap");
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 @import "tailwindcss";
 
 @theme {
-  --color-primary: #1565a9;
+  --color-primary: #1565A9;
   --color-primary-dark: #104c80;
-  --color-secondary: #f28c28;
+  --color-secondary: #F28C28;
   --color-secondary-dark: #d67a21;
 }
 
 body {
-  font-family: "Inter", sans-serif;
+  font-family: 'Inter', sans-serif;
   background-color: #f3f4f6; /* Tailwind gray-100 */
   color: #1f2937; /* Tailwind gray-800 */
 }

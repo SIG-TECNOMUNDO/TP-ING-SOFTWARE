@@ -38,6 +38,25 @@ try {
     ["Alta Córdoba", "Córdoba, Argentina"],
   )
 
+  for (const branchId of [yofre, alta]) {
+    await client.query(
+      `INSERT INTO payment_settings (branch_id,cash_discount,debit_surcharge) VALUES ($1,10,0)
+       ON CONFLICT (branch_id) DO NOTHING`,
+      [branchId],
+    )
+    await client.query(
+      `INSERT INTO payment_card_rules (branch_id,brand,card_type,installments,surcharge)
+       VALUES ($1,'Todas las tarjetas','Crédito',3,12),($1,'Todas las tarjetas','Crédito',6,24),($1,'Todas las tarjetas','Crédito',12,42)
+       ON CONFLICT (branch_id,brand,card_type,installments) DO NOTHING`,
+      [branchId],
+    )
+    await client.query(
+      `INSERT INTO payment_wallet_rules (branch_id,wallet,adjustment_type,adjustment)
+       VALUES ($1,'Mercado Pago','NONE',0) ON CONFLICT (branch_id,wallet) DO NOTHING`,
+      [branchId],
+    )
+  }
+
   const roleRows = await client.query<{
     id: number
     code: string
