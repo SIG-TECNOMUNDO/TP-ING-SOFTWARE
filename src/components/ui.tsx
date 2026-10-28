@@ -10,7 +10,7 @@ export function Card({
 }) {
   return (
     <div
-      className={`bg-white rounded-lg shadow-sm border border-gray-200 ${className}`}
+      className={`bg-white rounded-2xl shadow-[0_2px_12px_-2px_rgba(0,0,0,0.04),0_8px_24px_-4px_rgba(0,0,0,0.03)] border border-slate-200/80 transition-all ${className}`}
     >
       {children}
     </div>
@@ -28,15 +28,18 @@ export function Button({
   icon?: LucideIcon
 }) {
   const baseStyle =
-    "inline-flex items-center justify-center px-4 py-2 rounded-md font-medium text-sm transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2"
+    "inline-flex items-center justify-center px-4 py-2.5 rounded-xl font-medium text-sm transition-all duration-150 active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none cursor-pointer"
   const variants = {
-    primary: "bg-primary text-white hover:bg-primary-dark focus:ring-primary",
+    primary:
+      "bg-gradient-to-r from-[#1565A9] to-[#1E78C2] text-white hover:from-[#11528A] hover:to-[#1766A6] shadow-xs shadow-blue-900/15 focus:ring-[#1565A9]",
     secondary:
-      "bg-secondary text-white hover:bg-secondary-dark focus:ring-secondary",
+      "bg-gradient-to-r from-[#F28C28] to-[#F59E0B] text-white hover:from-[#D97706] hover:to-[#D97706] shadow-xs shadow-orange-900/15 focus:ring-[#F28C28]",
     outline:
-      "border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 focus:ring-primary",
-    danger: "bg-red-600 text-white hover:bg-red-700 focus:ring-red-500",
-    ghost: "bg-transparent text-gray-600 hover:bg-gray-100 focus:ring-gray-500",
+      "border border-slate-200/90 bg-white text-slate-700 hover:bg-slate-50 hover:border-slate-300 shadow-2xs focus:ring-[#1565A9]",
+    danger:
+      "bg-rose-600 text-white hover:bg-rose-700 shadow-xs shadow-rose-900/15 focus:ring-rose-500",
+    ghost:
+      "bg-transparent text-slate-600 hover:bg-slate-100 hover:text-slate-900 focus:ring-slate-400",
   }
 
   return (
@@ -44,7 +47,7 @@ export function Button({
       className={`${baseStyle} ${variants[variant]} ${className}`}
       {...props}
     >
-      {Icon && <Icon className="w-4 h-4 mr-2" />}
+      {Icon && <Icon className="w-4 h-4 mr-2 shrink-0" />}
       {children}
     </button>
   )
@@ -56,7 +59,7 @@ export function Input({
 }: React.InputHTMLAttributes<HTMLInputElement>) {
   return (
     <input
-      className={`block w-full rounded-md border-gray-300 border px-3 py-2 text-sm shadow-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary ${className}`}
+      className={`block w-full rounded-xl border-slate-200 border bg-white px-3.5 py-2.5 text-sm text-slate-800 placeholder-slate-400 shadow-2xs transition-colors focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 ${className}`}
       {...props}
     />
   )
@@ -69,7 +72,7 @@ export function Select({
 }: React.SelectHTMLAttributes<HTMLSelectElement>) {
   return (
     <select
-      className={`block w-full rounded-md border-gray-300 border px-3 py-2 text-sm shadow-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary bg-white ${className}`}
+      className={`block w-full rounded-xl border-slate-200 border bg-white px-3.5 py-2.5 text-sm text-slate-800 shadow-2xs transition-colors focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 cursor-pointer ${className}`}
       {...props}
     >
       {children}
@@ -87,16 +90,16 @@ export function Badge({
   className?: string
 }) {
   const variants = {
-    gray: "bg-gray-100 text-gray-800",
-    green: "bg-green-100 text-green-800",
-    blue: "bg-blue-100 text-blue-800",
-    yellow: "bg-yellow-100 text-yellow-800",
-    red: "bg-red-100 text-red-800",
-    orange: "bg-orange-100 text-orange-800",
+    gray: "bg-slate-500/10 text-slate-700 border border-slate-500/20",
+    green: "bg-emerald-500/12 text-emerald-700 border border-emerald-500/20",
+    blue: "bg-blue-500/12 text-blue-700 border border-blue-500/20",
+    yellow: "bg-amber-500/12 text-amber-800 border border-amber-500/20",
+    red: "bg-rose-500/12 text-rose-700 border border-rose-500/20",
+    orange: "bg-orange-500/12 text-orange-700 border border-orange-500/20",
   }
   return (
     <span
-      className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${variants[variant]} ${className}`}
+      className={`inline-flex items-center gap-1.5 rounded-full px-3 py-0.5 text-xs font-semibold tracking-wide transition-colors ${variants[variant]} ${className}`}
     >
       {children}
     </span>
@@ -110,12 +113,10 @@ export function Label({
 }: React.LabelHTMLAttributes<HTMLLabelElement>) {
   return (
     <label
-      className={`block text-sm font-medium text-gray-700 mb-1 ${className}`}
+      className={`block text-xs font-semibold uppercase tracking-wider text-slate-600 mb-1.5 ${className}`}
       {...props}
     >
       {children}
     </label>
   )
 }
-
-

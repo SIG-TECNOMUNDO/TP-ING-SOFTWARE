@@ -1,17 +1,32 @@
 import React, { useState } from "react"
 import { Card, Button, Badge, Input, Label, Select } from "../components/ui"
+import Modal from "../components/Modal"
 import {
   UserPlus,
   Shield,
-  Edit,
   Trash2,
   CreditCard,
   CheckCircle,
   CalendarDays,
   Wallet,
+  AlertCircle,
+  Users,
+  User as UserIcon,
+  Mail,
+  Lock,
 } from "lucide-react"
 
-const mockUsers = [
+type UserRole = "Administrador" | "Ventas" | "Técnico"
+
+interface SystemUser {
+  id: string
+  name: string
+  email: string
+  role: UserRole
+  branch?: string
+}
+
+const initialUsers: SystemUser[] = [
   {
     id: "1",
     name: "Administrador Principal",
@@ -43,6 +58,22 @@ const mockUsers = [
 ]
 
 export default function Admin() {
+  // Estado para gestión de usuarios
+  const [users, setUsers] = useState<SystemUser[]>(initialUsers)
+  const [isModalOpen, setIsModalOpen] = useState(false)
+  const [userToast, setUserToast] = useState<string | null>(null)
+
+  // Estado del formulario de nuevo usuario
+  const [formData, setFormData] = useState({
+    name: "",
+    email: "",
+    password: "",
+    confirmPassword: "",
+    role: "Ventas" as UserRole,
+  })
+  const [formError, setFormError] = useState<string | null>(null)
+
+  // Estado de configuración de pagos existente
   const [paymentSettings, setPaymentSettings] = useState({
     cashDiscount: "10",
     creditThree: "12",
@@ -61,6 +92,97 @@ export default function Admin() {
   })
   const [settingsSaved, setSettingsSaved] = useState(false)
 
+  // Handlers para usuarios
+  const handleOpenModal = () => {
+    setFormData({
+      name: "",
+      email: "",
+      password: "",
+      confirmPassword: "",
+      role: "Ventas",
+    })
+    setFormError(null)
+    setIsModalOpen(true)
+  }
+
+  const handleCloseModal = () => {
+    setIsModalOpen(false)
+    setFormError(null)
+  }
+
+  const handleCreateUser = (event: React.FormEvent) => {
+    event.preventDefault()
+    setFormError(null)
+
+    // Validaciones
+    if (!formData.name.trim()) {
+      setFormError("Por favor ingrese el nombre y apellido.")
+      return
+    }
+
+    if (!formData.email.trim() || !formData.email.includes("@")) {
+      setFormError("Por favor ingrese un correo electrónico válido.")
+      return
+    }
+
+    if (!formData.password) {
+      setFormError("La contraseña no puede estar vacía.")
+      return
+    }
+
+    if (formData.password.length < 6) {
+      setFormError("La contraseña debe tener al menos 6 caracteres.")
+      return
+    }
+
+    if (formData.password !== formData.confirmPassword) {
+      setFormError("Las contraseñas no coinciden.")
+      return
+    }
+
+    const emailExists = users.some(
+      (u) => u.email.toLowerCase() === formData.email.trim().toLowerCase(),
+    )
+    if (emailExists) {
+      setFormError("Ya existe un usuario con este correo electrónico.")
+      return
+    }
+
+    const newUser: SystemUser = {
+      id: Date.now().toString(),
+      name: formData.name.trim(),
+      email: formData.email.trim(),
+      role: formData.role,
+      branch: formData.role === "Administrador" ? "Todas" : "Yofre Norte",
+    }
+
+    setUsers((prev) => [newUser, ...prev])
+    setIsModalOpen(false)
+    setUserToast(`Usuario "${newUser.name}" creado con éxito.`)
+    window.setTimeout(() => setUserToast(null), 4000)
+  }
+
+  const handleDeleteUser = (id: string, name: string) => {
+    setUsers((prev) => prev.filter((u) => u.id !== id))
+    setUserToast(`Usuario "${name}" eliminado.`)
+    window.setTimeout(() => setUserToast(null), 3000)
+  }
+
+  // Helpers de estilo para roles
+  const getRoleBadgeVariant = (role: UserRole) => {
+    switch (role) {
+      case "Administrador":
+        return "orange"
+      case "Técnico":
+        return "blue"
+      case "Ventas":
+        return "green"
+      default:
+        return "gray"
+    }
+  }
+
+  // Handlers para pagos
   const updatePaymentSetting = (
     field: keyof typeof paymentSettings,
     value: string,
@@ -77,87 +199,267 @@ export default function Admin() {
 
   return (
     <div className="space-y-6">
+      {/* Encabezado */}
       <div>
         <h1 className="text-2xl font-bold text-gray-900">Administración</h1>
         <p className="mt-1 text-sm text-gray-500">
-          Gestión de usuarios, permisos y configuración general.
+          Gestión de usuarios, permisos y configuración general del sistema.
         </p>
       </div>
 
+      {/* Toast de notificación global */}
+      {userToast && (
+        <div className="p-4 rounded-lg bg-green-50 border border-green-200 text-green-800 flex items-center justify-between shadow-sm animate-fade-in">
+          <div className="flex items-center space-x-2">
+            <CheckCircle className="h-5 w-5 text-green-600 flex-shrink-0" />
+            <span className="text-sm font-medium">{userToast}</span>
+          </div>
+          <button
+            onClick={() => setUserToast(null)}
+            className="text-green-600 hover:text-green-800 text-xs font-semibold uppercase tracking-wider"
+          >
+            Cerrar
+          </button>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
-          <Card>
-            <div className="p-4 border-b border-gray-200 flex justify-between items-center">
-              <h2 className="text-lg font-medium text-gray-900 flex items-center">
-                <Shield className="mr-2 h-5 w-5 text-gray-500" />
-                Usuarios del Sistema
-              </h2>
-              <Button icon={UserPlus} className="text-sm py-1.5">
+          {/* Card: Gestión de Usuarios */}
+          <Card className="overflow-hidden">
+            <div className="p-5 border-b border-gray-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 bg-white">
+              <div className="flex items-center space-x-3">
+                <div className="p-2 bg-blue-50 text-primary rounded-lg">
+                  <Users className="h-5 w-5" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-semibold text-gray-900">
+                    Gestión de Usuarios
+                  </h2>
+                  <p className="text-xs text-gray-500">
+                    {users.length} usuarios registrados en la plataforma
+                  </p>
+                </div>
+              </div>
+
+              <Button
+                icon={UserPlus}
+                onClick={handleOpenModal}
+                className="py-2 text-sm shadow-sm"
+              >
                 Nuevo Usuario
               </Button>
             </div>
+
+            {/* Listado de Usuarios */}
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Usuario
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                      Nombre
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                      Usuario / Email
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
                       Rol
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Sucursal
-                    </th>
-                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">
                       Acciones
                     </th>
                   </tr>
                 </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {mockUsers.map((user) => (
-                    <tr key={user.id}>
+                <tbody className="bg-white divide-y divide-gray-100">
+                  {users.map((user) => (
+                    <tr
+                      key={user.id}
+                      className="hover:bg-gray-50/80 transition-colors"
+                    >
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm font-medium text-gray-900">
-                          {user.name}
-                        </div>
-                        <div className="text-sm text-gray-500">
-                          {user.email}
+                        <div className="flex items-center">
+                          <div className="h-9 w-9 rounded-full bg-primary/10 text-primary flex items-center justify-center font-semibold text-sm mr-3">
+                            {user.name.charAt(0).toUpperCase()}
+                          </div>
+                          <div>
+                            <div className="text-sm font-semibold text-gray-900">
+                              {user.name}
+                            </div>
+                            <div className="text-xs text-gray-400">
+                              ID: {user.id}
+                            </div>
+                          </div>
                         </div>
                       </td>
+
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                        {user.email}
+                      </td>
+
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <Badge
-                          variant={
-                            user.role === "Administrador"
-                              ? "orange"
-                              : user.role === "Técnico"
-                                ? "blue"
-                                : "green"
-                          }
-                        >
+                        <Badge variant={getRoleBadgeVariant(user.role)}>
                           {user.role}
                         </Badge>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {user.branch}
-                      </td>
+
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                        <div className="flex justify-end space-x-2">
-                          <button className="text-blue-600 hover:text-blue-900">
-                            <Edit className="h-4 w-4" />
-                          </button>
-                          <button className="text-red-600 hover:text-red-900">
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        </div>
+                        <button
+                          onClick={() => handleDeleteUser(user.id, user.name)}
+                          className="text-gray-400 hover:text-red-600 transition-colors p-1.5 rounded-md hover:bg-red-50"
+                          title="Eliminar usuario"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
                       </td>
                     </tr>
                   ))}
+                  {users.length === 0 && (
+                    <tr>
+                      <td
+                        colSpan={4}
+                        className="px-6 py-8 text-center text-sm text-gray-500"
+                      >
+                        No hay usuarios cargados en el sistema.
+                      </td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
             </div>
           </Card>
 
+          {/* Modal / Formulario de Creación de Usuario */}
+          {isModalOpen && (
+            <Modal title="Crear Nuevo Usuario" onClose={handleCloseModal}>
+              <form onSubmit={handleCreateUser} className="space-y-4">
+                <p className="text-xs text-gray-500 -mt-2">
+                  Completa los datos del nuevo integrante para asignarle
+                  credenciales y rol en SIG-Tecnomundo.
+                </p>
+
+                {formError && (
+                  <div className="p-3 bg-red-50 border-l-4 border-red-500 rounded-md flex items-start space-x-2">
+                    <AlertCircle className="h-5 w-5 text-red-500 flex-shrink-0 mt-0.5" />
+                    <span className="text-xs text-red-700 font-medium">
+                      {formError}
+                    </span>
+                  </div>
+                )}
+
+                <div>
+                  <Label htmlFor="user-name">Nombre y Apellido</Label>
+                  <div className="relative mt-1">
+                    <Input
+                      id="user-name"
+                      type="text"
+                      required
+                      placeholder="Ej. Lucas González"
+                      value={formData.name}
+                      onChange={(e) =>
+                        setFormData({ ...formData, name: e.target.value })
+                      }
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <Label htmlFor="user-email">Nombre de Usuario o Email</Label>
+                  <div className="relative mt-1">
+                    <Input
+                      id="user-email"
+                      type="email"
+                      required
+                      placeholder="lucas.gonzalez@tecnomundo.com"
+                      value={formData.email}
+                      onChange={(e) =>
+                        setFormData({ ...formData, email: e.target.value })
+                      }
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="user-password">Contraseña</Label>
+                    <div className="relative mt-1">
+                      <Input
+                        id="user-password"
+                        type="password"
+                        required
+                        placeholder="••••••••"
+                        value={formData.password}
+                        onChange={(e) =>
+                          setFormData({ ...formData, password: e.target.value })
+                        }
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <Label htmlFor="user-confirm-password">
+                      Repetir Contraseña
+                    </Label>
+                    <div className="relative mt-1">
+                      <Input
+                        id="user-confirm-password"
+                        type="password"
+                        required
+                        placeholder="••••••••"
+                        value={formData.confirmPassword}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            confirmPassword: e.target.value,
+                          })
+                        }
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <Label htmlFor="user-role">Rol en el Sistema</Label>
+                  <div className="mt-1">
+                    <Select
+                      id="user-role"
+                      value={formData.role}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          role: e.target.value as UserRole,
+                        })
+                      }
+                    >
+                      <option value="Administrador">
+                        Administrador (Acceso total)
+                      </option>
+                      <option value="Ventas">
+                        Ventas (Caja, ventas e inventario)
+                      </option>
+                      <option value="Técnico">
+                        Técnico (Órdenes técnicas y servicio)
+                      </option>
+                    </Select>
+                  </div>
+                </div>
+
+                <div className="pt-4 border-t border-gray-200 flex justify-end space-x-3">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handleCloseModal}
+                  >
+                    Cancelar
+                  </Button>
+                  <Button type="submit" variant="primary">
+                    Crear Usuario
+                  </Button>
+                </div>
+              </form>
+            </Modal>
+          )}
+
+          {/* Configuración de Métodos de Pago */}
           <Card>
             <div className="p-4 border-b border-gray-200">
               <h2 className="text-lg font-medium text-gray-900 flex items-center">
@@ -165,8 +467,8 @@ export default function Admin() {
                 Configuración de Métodos de Pago
               </h2>
               <p className="mt-1 text-sm text-gray-500">
-                Definí los descuentos y recargos que se aplican al registrar
-                una venta.
+                Definí los descuentos y recargos que se aplican al registrar una
+                venta.
               </p>
             </div>
             <form className="p-5" onSubmit={savePaymentSettings}>
@@ -502,6 +804,7 @@ export default function Admin() {
           </Card>
         </div>
 
+        {/* Barra lateral */}
         <div className="space-y-6">
           <Card className="p-4">
             <h2 className="text-lg font-medium text-gray-900 mb-4 border-b pb-2">
@@ -552,5 +855,3 @@ export default function Admin() {
     </div>
   )
 }
-
-

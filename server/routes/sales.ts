@@ -25,11 +25,13 @@ const saleSchema = z.object({
   cardBrand: z.string().max(50).optional(),
   cardType: z.string().max(30).optional(),
   wallet: z.string().max(60).optional(),
-  marketplace: z.object({
-    operationNumber: z.string().min(3).max(80),
-    buyerUsername: z.string().min(2).max(100),
-    shippingType: z.enum(["colecta", "sucursal"]),
-  }).optional(),
+  marketplace: z
+    .object({
+      operationNumber: z.string().min(3).max(80),
+      buyerUsername: z.string().min(2).max(100),
+      shippingType: z.enum(["colecta", "sucursal"]),
+    })
+    .optional(),
   items: z
     .array(
       z.object({
@@ -85,8 +87,16 @@ salesRouter.post(
         })
       }
       if (input.paymentMethod === "mercadolibre" && !input.marketplace)
-        throw new AppError(400, "Completá los datos de la operación de Mercado Libre")
-      const pricing = await calculatePayment(db, input.branchId, subtotal, input)
+        throw new AppError(
+          400,
+          "Completá los datos de la operación de Mercado Libre",
+        )
+      const pricing = await calculatePayment(
+        db,
+        input.branchId,
+        subtotal,
+        input,
+      )
       const saleResult = await db.query<{
         id: string
         number: string
@@ -152,7 +162,10 @@ salesRouter.post(
         referenceType: "sale",
         referenceId: sale.id,
       })
-      await audit(db, request.user!.id, "CREATE", "sale", sale.id, { total: pricing.total, adjustmentPercent: pricing.adjustmentPercent })
+      await audit(db, request.user!.id, "CREATE", "sale", sale.id, {
+        total: pricing.total,
+        adjustmentPercent: pricing.adjustmentPercent,
+      })
       await db.query("COMMIT")
       response.status(201).json({ ...sale, subtotal, ...pricing })
     } catch (error) {

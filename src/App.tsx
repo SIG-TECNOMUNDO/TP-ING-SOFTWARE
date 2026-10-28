@@ -20,16 +20,52 @@ export default function App() {
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
-      <Route element={<ProtectedRoute><BranchProvider><DashboardLayout /></BranchProvider></ProtectedRoute>}>
+      <Route
+        element={
+          <ProtectedRoute>
+            <BranchProvider>
+              <DashboardLayout />
+            </BranchProvider>
+          </ProtectedRoute>
+        }
+      >
         <Route path="/" element={<Dashboard />} />
         <Route path="/inventario" element={<Inventory />} />
-        <Route path="/ventas" element={<ProtectedRoute roles={["ADMIN", "SALES"]}><Sales /></ProtectedRoute>} />
+        <Route
+          path="/ventas"
+          element={
+            <ProtectedRoute roles={["ADMIN", "SALES"]}>
+              <Sales />
+            </ProtectedRoute>
+          }
+        />
         <Route path="/servicio-tecnico" element={<ServiceList />} />
-        <Route path="/servicio-tecnico/nueva" element={<ProtectedRoute roles={["ADMIN", "SALES"]}><NewOrder /></ProtectedRoute>} />
+        <Route
+          path="/servicio-tecnico/nueva"
+          element={
+            <ProtectedRoute roles={["ADMIN", "SALES"]}>
+              <NewOrder />
+            </ProtectedRoute>
+          }
+        />
         <Route path="/servicio-tecnico/:id" element={<OrderDetail />} />
         <Route path="/clientes" element={<Clients />} />
-        <Route path="/administracion" element={<ProtectedRoute roles={["ADMIN"]}><Admin /></ProtectedRoute>} />
-        <Route path="/caja" element={<ProtectedRoute roles={["ADMIN"]}><CashFlow /></ProtectedRoute>} />
+        <Route
+          path="/administracion"
+          element={
+            <ProtectedRoute roles={["ADMIN"]}>
+              <Admin />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/caja"
+          element={
+            <ProtectedRoute roles={["ADMIN", "SALES"]}>
+              <CashFlow />
+            </ProtectedRoute>
+          }
+        />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

@@ -153,9 +153,7 @@ export default function OrderDetail() {
                 <p className="text-sm text-gray-500">
                   Observaciones al Ingreso
                 </p>
-                <p className="text-sm mt-1">
-                  {orderData.observations}
-                </p>
+                <p className="text-sm mt-1">{orderData.observations}</p>
               </div>
             </div>
           </Card>
@@ -412,5 +410,3 @@ export default function OrderDetail() {
     </div>
   )
 }
-
-
