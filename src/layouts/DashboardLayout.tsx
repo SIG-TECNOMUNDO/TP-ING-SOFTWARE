@@ -14,14 +14,9 @@ import {
   Search,
   MapPin,
   WalletCards,
-  Sun,
-  Moon,
-  ChevronDown,
-  Shield,
 } from "lucide-react"
 import { useAuth } from "../context/AuthContext"
 import { useBranch } from "../context/BranchContext"
-import { useTheme } from "../context/ThemeContext"
 
 const navItems = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard },
@@ -40,9 +35,7 @@ export default function DashboardLayout() {
   const navigate = useNavigate()
   const { user, logout } = useAuth()
   const { branches, branchId, setBranchId } = useBranch()
-  const { theme, toggleTheme } = useTheme()
 
-  // Hide layout on login page
   if (location.pathname === "/login") {
     return <Outlet />
   }
@@ -55,41 +48,34 @@ export default function DashboardLayout() {
   const userInitial = user?.name ? user.name.charAt(0).toUpperCase() : "U"
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-[#0B1120] text-slate-900 dark:text-slate-100 transition-colors duration-300">
-      {/* Sidebar fijo (Desktop) y Drawer (Mobile) */}
+    <div className="min-h-screen bg-[#F4F6F9] dark:bg-[#0B1120] text-slate-900 dark:text-slate-100">
+      {/* Menú Lateral (Sidebar) integrado en paleta neutra y clara sin líneas divisorias bruscas */}
       <aside
-        className={`fixed inset-y-0 left-0 z-50 w-64 bg-gradient-to-b from-[#092B4B] via-[#0E3E6B] to-[#0B2F52] dark:from-[#060D1A] dark:via-[#0A1629] dark:to-[#050B14] text-white flex flex-col justify-between border-r border-slate-800/60 dark:border-slate-800/80 shadow-xl shadow-slate-900/15 transition-transform duration-300 ease-in-out ${
-          sidebarOpen ? "translate-x-0" : "-translate-x-full"
-        } md:translate-x-0`}
+        className={`fixed inset-y-0 left-0 z-50 w-64 bg-[#F4F6F9] dark:bg-[#0B1120] flex flex-col justify-between transition-transform duration-300 ease-in-out ${
+          sidebarOpen ? "translate-x-0 shadow-2xl" : "-translate-x-full"
+        } md:translate-x-0 md:shadow-none`}
       >
-        {/* Top: Logo de TecnoMundo */}
-        <div className="shrink-0 flex items-center justify-between h-20 px-4 border-b border-white/10 dark:border-white/5">
-          <div className="bg-white rounded-2xl py-2 px-3.5 shadow-sm shadow-blue-950/20 flex items-center justify-center w-full max-w-[210px] transition-transform hover:scale-[1.01]">
-            <img
-              src="/logo.png"
-              alt="TecnoMundo"
-              className="h-8 w-auto object-contain max-w-full"
-            />
-          </div>
+        {/* Top: Logo alineado en altura (h-20) con la barra superior */}
+        <div className="shrink-0 flex items-center justify-between h-20 px-6">
+          <img
+            src="/logo.png"
+            alt="TecnoMundo"
+            className="h-9 w-auto object-contain max-w-[190px] dark:brightness-110"
+          />
           <button
             onClick={() => setSidebarOpen(false)}
-            className="md:hidden p-2 text-white/70 hover:text-white rounded-xl hover:bg-white/10 ml-2"
+            className="md:hidden p-2 text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white rounded-xl hover:bg-white/60 dark:hover:bg-slate-800"
             aria-label="Cerrar menú"
           >
             <X className="h-5 w-5" />
           </button>
         </div>
 
-        {/* Middle: Navegación scrollable con estilo de burbujas */}
-        <div className="flex-1 overflow-y-auto py-5 px-3 space-y-1">
-          <div className="px-3 mb-3 flex items-center justify-between">
-            <span className="text-2xs uppercase tracking-wider text-blue-200/60 dark:text-slate-400 font-bold font-heading">
-              Menú Principal
-            </span>
-            <span className="text-3xs font-semibold px-1.5 py-0.5 rounded-full bg-white/10 text-blue-200">
-              v1.0
-            </span>
-          </div>
+        {/* Middle: Navegación con estilo de tarjetas suaves */}
+        <div className="flex-1 overflow-y-auto py-3 px-4 space-y-1">
+          <p className="px-3.5 text-2xs uppercase tracking-wider text-slate-400 dark:text-slate-500 font-bold mb-2.5 font-heading">
+            Menú Principal
+          </p>
           <nav className="space-y-1.5">
             {navItems.map((item) => (
               <NavLink
@@ -97,62 +83,63 @@ export default function DashboardLayout() {
                 to={item.to}
                 onClick={() => setSidebarOpen(false)}
                 className={({ isActive }) =>
-                  `flex items-center px-3.5 py-2.5 text-sm font-medium rounded-2xl transition-all duration-150 ${
+                  `flex items-center px-3.5 py-2.5 text-sm rounded-2xl transition-all duration-150 ${
                     isActive
-                      ? "bg-white/15 dark:bg-primary/25 text-white shadow-xs font-semibold backdrop-blur-xs border-l-4 border-secondary pl-3"
-                      : "text-blue-100/75 dark:text-slate-300 hover:bg-white/10 hover:text-white"
+                      ? "bg-white dark:bg-slate-800/90 text-primary dark:text-blue-400 font-semibold shadow-xs border border-slate-200/70 dark:border-slate-700/80"
+                      : "text-slate-600 dark:text-slate-400 font-medium hover:bg-white/60 dark:hover:bg-slate-800/40 hover:text-slate-900 dark:hover:text-slate-200"
                   }`
                 }
               >
-                <item.icon className="mr-3 h-4 w-4 shrink-0" />
-                {item.label}
+                {({ isActive }) => (
+                  <>
+                    <item.icon
+                      className={`mr-3 h-4 w-4 shrink-0 transition-colors ${
+                        isActive
+                          ? "text-primary dark:text-blue-400"
+                          : "text-slate-400 dark:text-slate-500"
+                      }`}
+                    />
+                    {item.label}
+                  </>
+                )}
               </NavLink>
             ))}
           </nav>
         </div>
 
-        {/* Bottom: Estado de sesión y Cerrar Sesión */}
-        <div className="shrink-0 p-3.5 border-t border-white/10 dark:border-white/5 bg-black/20 dark:bg-black/40">
-          <div className="mb-2.5 px-2 flex items-center justify-between text-xs text-blue-200/70 dark:text-slate-400">
-            <span className="flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-              <span>En línea</span>
-            </span>
-            <span className="text-3xs font-mono uppercase bg-white/10 dark:bg-white/5 px-1.5 py-0.5 rounded">
-              {user?.role ?? "INVITADO"}
-            </span>
+        {/* Bottom: Cerrar sesión en tarjeta sutil */}
+        <div className="shrink-0 p-4">
+          <div className="bg-white/80 dark:bg-slate-900/80 rounded-2xl p-2.5 border border-slate-200/70 dark:border-slate-800 shadow-2xs">
+            <button
+              onClick={handleLogout}
+              className="flex w-full items-center justify-center px-3 py-2 text-xs font-semibold rounded-xl text-slate-600 dark:text-slate-300 hover:bg-rose-50 dark:hover:bg-rose-950/40 hover:text-rose-600 dark:hover:text-rose-400 transition-colors group cursor-pointer"
+            >
+              <LogOut className="mr-2 h-4 w-4 text-slate-400 group-hover:text-rose-500 transition-colors" />
+              Cerrar sesión
+            </button>
           </div>
-          <button
-            onClick={handleLogout}
-            className="flex w-full items-center justify-center px-3.5 py-2.5 text-sm font-medium rounded-xl text-blue-100 hover:bg-rose-500/20 hover:text-white transition-all group cursor-pointer border border-transparent hover:border-rose-500/30"
-          >
-            <LogOut className="mr-2.5 h-4 w-4 text-blue-200 group-hover:text-rose-400 transition-colors" />
-            Cerrar sesión
-          </button>
         </div>
       </aside>
 
-      {/* Área principal (con offset izquierdo en desktop) */}
+      {/* Contenedor Principal fusionado visualmente con el Sidebar */}
       <div className="md:pl-64 flex flex-col min-h-screen min-w-0">
-        {/* Barra superior estilizada con diseño de Burbujas / Cards */}
-        <header className="sticky top-0 z-30 px-3 sm:px-6 lg:px-8 py-3 backdrop-blur-md bg-slate-50/80 dark:bg-[#0B1120]/80 border-b border-slate-200/70 dark:border-slate-800/80 transition-colors">
-          <div className="flex items-center justify-between gap-2 sm:gap-4">
-            {/* Sección Izquierda: Toggle Móvil + Sucursal */}
-            <div className="flex items-center gap-2 sm:gap-3">
-              {/* Botón menú móvil */}
+        {/* Barra Superior continua (misma altura h-20 y mismo fondo que el Sidebar, sin líneas divisorias) */}
+        <header className="sticky top-0 z-30 h-20 px-4 sm:px-6 lg:px-8 flex items-center bg-[#F4F6F9]/90 dark:bg-[#0B1120]/90 backdrop-blur-md">
+          <div className="w-full flex items-center justify-between gap-3 sm:gap-4">
+            {/* Izquierda: Menú móvil + Burbuja de Sucursal */}
+            <div className="flex items-center gap-2.5 sm:gap-3">
               <button
-                className="md:hidden p-2 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white rounded-2xl bg-white dark:bg-slate-800/90 border border-slate-200/80 dark:border-slate-700 shadow-xs hover:bg-slate-100 dark:hover:bg-slate-700 transition-all cursor-pointer"
+                className="md:hidden p-2.5 text-slate-600 dark:text-slate-300 hover:text-slate-900 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-xs cursor-pointer"
                 onClick={() => setSidebarOpen(!sidebarOpen)}
-                aria-label="Abrir menú de navegación"
+                aria-label="Abrir menú"
               >
                 <Menu className="h-5 w-5" />
               </button>
 
-              {/* Burbuja / Card: Selector de Sucursal */}
-              <div className="flex items-center bg-white dark:bg-slate-800/90 rounded-2xl px-3 py-1.5 text-xs text-slate-700 dark:text-slate-200 shadow-xs border border-slate-200/80 dark:border-slate-700/80 transition-all">
-                <MapPin className="h-3.5 w-3.5 mr-1.5 text-secondary shrink-0" />
+              <div className="flex items-center bg-white dark:bg-slate-900 rounded-2xl px-3.5 py-2 text-xs text-slate-700 dark:text-slate-200 shadow-xs border border-slate-200/80 dark:border-slate-800">
+                <MapPin className="h-3.5 w-3.5 mr-2 text-secondary shrink-0" />
                 {user?.branchId ? (
-                  <span className="font-semibold text-slate-800 dark:text-slate-100 max-w-[130px] sm:max-w-[180px] truncate">
+                  <span className="font-semibold text-slate-800 dark:text-slate-100 max-w-[140px] sm:max-w-[180px] truncate">
                     {user.branchName || "Mi Sucursal"}
                   </span>
                 ) : (
@@ -161,11 +148,11 @@ export default function DashboardLayout() {
                     onChange={(e) => setBranchId(e.target.value)}
                     className="bg-transparent border-none focus:outline-none focus:ring-0 text-xs font-semibold text-slate-800 dark:text-slate-100 cursor-pointer pr-1"
                   >
-                    <option value="" className="dark:bg-slate-800">
+                    <option value="" className="dark:bg-slate-900">
                       Todas las sucursales
                     </option>
                     {branches.map((b) => (
-                      <option key={b.id} value={b.id} className="dark:bg-slate-800">
+                      <option key={b.id} value={b.id} className="dark:bg-slate-900">
                         {b.name}
                       </option>
                     ))}
@@ -174,7 +161,7 @@ export default function DashboardLayout() {
               </div>
             </div>
 
-            {/* Sección Centro: Buscador global tipo Burbuja */}
+            {/* Centro: Buscador limpio en burbuja (solo lupa y "Buscar...") */}
             <div className="flex-1 max-w-md hidden md:block">
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400 dark:text-slate-500">
@@ -182,89 +169,69 @@ export default function DashboardLayout() {
                 </div>
                 <input
                   type="text"
-                  placeholder="Buscar cliente, orden, producto..."
-                  className="w-full pl-9 pr-12 py-1.5 text-xs rounded-2xl bg-white dark:bg-slate-800/90 border border-slate-200/80 dark:border-slate-700/80 text-slate-800 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 shadow-xs focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                  placeholder="Buscar..."
+                  className="w-full pl-10 pr-4 py-2 text-xs rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 text-slate-800 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 shadow-xs focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
                 />
-                <div className="absolute inset-y-0 right-0 pr-2.5 flex items-center pointer-events-none">
-                  <kbd className="hidden lg:inline-block px-1.5 py-0.5 text-3xs font-semibold text-slate-400 dark:text-slate-500 bg-slate-100 dark:bg-slate-700/80 rounded border border-slate-200 dark:border-slate-600">
-                    ⌘K
-                  </kbd>
-                </div>
               </div>
             </div>
 
-            {/* Sección Derecha: Burbujas de Acciones (Buscador Móvil, Tema, Notificaciones, Perfil) */}
-            <div className="flex items-center gap-2 sm:gap-2.5">
-              {/* Botón Buscador móvil */}
+            {/* Derecha: Burbujas de Notificaciones y Perfil */}
+            <div className="flex items-center gap-2.5">
+              {/* Botón buscador en móvil */}
               <button
                 onClick={() => setMobileSearchOpen(!mobileSearchOpen)}
-                className="md:hidden p-2 rounded-2xl bg-white dark:bg-slate-800/90 border border-slate-200/80 dark:border-slate-700/80 text-slate-600 dark:text-slate-300 shadow-xs hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
-                aria-label="Abrir buscador"
+                className="md:hidden p-2.5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 text-slate-600 dark:text-slate-300 shadow-xs hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                aria-label="Buscar"
               >
                 <Search className="h-4 w-4" />
               </button>
 
-              {/* Burbuja: Toggle Tema Claro / Oscuro */}
-              <button
-                onClick={toggleTheme}
-                type="button"
-                aria-label={theme === "dark" ? "Cambiar a modo claro" : "Cambiar a modo oscuro"}
-                className="p-2 rounded-2xl bg-white dark:bg-slate-800/90 border border-slate-200/80 dark:border-slate-700/80 text-slate-700 dark:text-slate-200 shadow-xs hover:shadow hover:bg-slate-100 dark:hover:bg-slate-700 transition-all cursor-pointer"
-                title={theme === "dark" ? "Cambiar a modo claro" : "Cambiar a modo oscuro"}
-              >
-                {theme === "dark" ? (
-                  <Sun className="h-4 w-4 text-amber-400 transition-transform rotate-0 hover:rotate-45" />
-                ) : (
-                  <Moon className="h-4 w-4 text-primary transition-transform -rotate-12 hover:rotate-0" />
-                )}
-              </button>
-
               {/* Burbuja: Notificaciones */}
               <button
-                className="p-2 rounded-2xl bg-white dark:bg-slate-800/90 border border-slate-200/80 dark:border-slate-700/80 text-slate-600 dark:text-slate-300 shadow-xs hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors relative cursor-pointer"
+                className="p-2.5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 text-slate-600 dark:text-slate-300 shadow-xs hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors relative cursor-pointer"
                 aria-label="Notificaciones"
               >
                 <Bell className="h-4 w-4" />
-                <span className="absolute top-1.5 right-1.5 block h-2 w-2 rounded-full bg-secondary ring-2 ring-white dark:ring-slate-800"></span>
+                <span className="absolute top-2 right-2 block h-2 w-2 rounded-full bg-secondary ring-2 ring-white dark:ring-slate-900"></span>
               </button>
 
               {/* Burbuja: Perfil de usuario */}
-              <div className="flex items-center bg-white dark:bg-slate-800/90 rounded-2xl p-1.5 sm:px-3 sm:py-1.5 shadow-xs border border-slate-200/80 dark:border-slate-700/80 transition-all">
-                <div className="h-7 w-7 rounded-xl bg-gradient-to-tr from-primary to-primary-light flex items-center justify-center text-white font-bold text-xs shadow-xs ring-2 ring-primary/20">
+              <div className="flex items-center bg-white dark:bg-slate-900 rounded-2xl p-1.5 sm:px-3 sm:py-1.5 shadow-xs border border-slate-200/80 dark:border-slate-800">
+                <div className="h-7 w-7 rounded-xl bg-primary/10 dark:bg-primary/20 text-primary dark:text-blue-400 flex items-center justify-center font-bold text-xs">
                   {userInitial}
                 </div>
-                <div className="ml-2 hidden sm:block text-left">
-                  <span className="block text-xs font-bold text-slate-900 dark:text-slate-100 leading-tight truncate max-w-[120px]">
+                <div className="ml-2.5 hidden sm:block text-left pr-1">
+                  <span className="block text-xs font-bold text-slate-800 dark:text-slate-100 leading-tight truncate max-w-[130px]">
                     {user?.name || "Administrador"}
                   </span>
-                  <span className="block text-3xs text-slate-400 dark:text-slate-400 font-medium leading-none mt-0.5">
+                  <span className="block text-3xs text-slate-400 dark:text-slate-500 font-medium leading-none mt-0.5">
                     {user?.role || "ADMIN"}
                   </span>
                 </div>
               </div>
             </div>
           </div>
-
-          {/* Desplegable de buscador en móviles */}
-          {mobileSearchOpen && (
-            <div className="mt-2.5 md:hidden animate-fadeIn">
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
-                  <Search className="h-4 w-4" />
-                </div>
-                <input
-                  type="text"
-                  placeholder="Buscar cliente, orden, producto..."
-                  autoFocus
-                  className="w-full pl-9 pr-3.5 py-2 text-xs rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-100 placeholder-slate-400 shadow-xs focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                />
-              </div>
-            </div>
-          )}
         </header>
 
-        {/* Contenido dinámico */}
-        <main className="flex-1 p-3.5 sm:p-6 lg:p-8 overflow-y-auto">
+        {/* Buscador desplegable en móvil */}
+        {mobileSearchOpen && (
+          <div className="px-4 pb-3 md:hidden animate-fadeIn">
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                <Search className="h-4 w-4" />
+              </div>
+              <input
+                type="text"
+                placeholder="Buscar..."
+                autoFocus
+                className="w-full pl-10 pr-4 py-2 text-xs rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-100 placeholder-slate-400 shadow-xs focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Área de Contenido Principal */}
+        <main className="flex-1 px-4 sm:px-6 lg:px-8 pb-8 pt-2 overflow-y-auto">
           <Outlet />
         </main>
       </div>
@@ -272,7 +239,7 @@ export default function DashboardLayout() {
       {/* Overlay para móviles */}
       {sidebarOpen && (
         <div
-          className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-40 md:hidden transition-opacity"
+          className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs z-40 md:hidden transition-opacity"
           onClick={() => setSidebarOpen(false)}
         ></div>
       )}
