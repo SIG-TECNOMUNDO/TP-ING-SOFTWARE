@@ -3,7 +3,15 @@ import { env } from "../config.js"
 
 const { Pool } = pg
 
-export const pool = new Pool({ connectionString: env.DATABASE_URL })
+const isRemote =
+  env.DATABASE_URL.includes("supabase.co") ||
+  env.DATABASE_URL.includes("pooler.supabase.com") ||
+  env.DATABASE_URL.includes("sslmode=require")
+
+export const pool = new Pool({
+  connectionString: env.DATABASE_URL,
+  ssl: isRemote ? { rejectUnauthorized: false } : undefined,
+})
 
 pool.on("error", (error) => {
   console.error("Error inesperado de PostgreSQL", error)
