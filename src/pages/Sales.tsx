@@ -67,8 +67,7 @@ const initialSalesHistory: SaleRecord[] = [
     subtotal: 52000,
     discountAmount: 0,
     total: 52000,
-    paymentSummary:
-      "Mixto (Efectivo: $20.000 + MP/Transf.: $32.000)",
+    paymentSummary: "Mixto (Efectivo: $20.000 + Transferencia: $32.000)",
   },
 ]
 
@@ -85,7 +84,7 @@ export default function Sales() {
 
   return (
     <div className="space-y-6">
-      {/* Encabezado con botón prominente "+ Registrar Venta" */}
+      {/* Encabezado con recuadro "Facturado en turno" de la misma altura y proporción compacta que "+ Registrar Venta" */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 font-heading tracking-tight">
@@ -97,25 +96,22 @@ export default function Sales() {
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
-          <div className="hidden md:flex items-center gap-2.5 bg-white px-4 py-2 rounded-2xl border border-slate-200/80 shadow-xs">
-            <div className="p-1.5 rounded-xl bg-emerald-50 text-emerald-600">
-              <TrendingUp className="w-4 h-4" />
-            </div>
-            <div>
-              <span className="block text-3xs uppercase font-bold text-slate-400">
-                Facturado en turno ({salesHistory.length})
-              </span>
-              <span className="block text-xs font-extrabold text-slate-900 font-heading">
-                $ {sessionTotal.toLocaleString("es-AR")}
-              </span>
-            </div>
+        <div className="flex flex-wrap items-center gap-2.5">
+          {/* Recuadro compacto de idéntica altura (h-10) al botón "+ Registrar Venta" */}
+          <div className="inline-flex items-center gap-2 h-10 bg-white px-3.5 rounded-xl border border-slate-200/90 shadow-2xs">
+            <TrendingUp className="w-4 h-4 text-emerald-600 shrink-0" />
+            <span className="text-2xs uppercase tracking-wider font-bold text-slate-400">
+              Facturado en turno:
+            </span>
+            <span className="text-xs sm:text-sm font-extrabold text-slate-900 font-mono">
+              $ {sessionTotal.toLocaleString("es-AR")}
+            </span>
           </div>
 
           <Button
             variant="secondary"
             onClick={() => setModalOpen(true)}
-            className="text-xs sm:text-sm py-2.5 px-4 sm:px-5 font-bold shadow-md hover:shadow-lg"
+            className="h-10 py-0 px-4 text-xs sm:text-sm font-bold shadow-md hover:shadow-lg"
           >
             <Plus className="w-4 h-4 mr-1.5 stroke-[2.5]" />
             Registrar Venta

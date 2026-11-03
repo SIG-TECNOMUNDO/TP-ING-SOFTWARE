@@ -15,6 +15,7 @@ import {
   PackagePlus,
   CheckCircle2,
   Clock,
+  CreditCard,
 } from "lucide-react"
 import { Link } from "react-router-dom"
 import RegisterSaleModal, { SaleRecord } from "../components/RegisterSaleModal"
@@ -85,6 +86,66 @@ const todayOrders = [
   },
 ]
 
+interface TodaySaleRow {
+  id: string
+  time: string
+  itemsSummary: string
+  paymentMethod: string
+  total: number
+}
+
+const initialTodaySales: TodaySaleRow[] = [
+  {
+    id: "VTA-84910",
+    time: "17:05 hs",
+    itemsSummary: "2x Funda MagSafe iPhone 14, 1x Vidrio Templado 9D",
+    paymentMethod: "Efectivo",
+    total: 32850,
+  },
+  {
+    id: "VTA-84892",
+    time: "16:12 hs",
+    itemsSummary: "1x Auriculares Bluetooth JBL Tune 510BT",
+    paymentMethod: "Pago Mixto",
+    total: 52000,
+  },
+  {
+    id: "VTA-84875",
+    time: "15:00 hs",
+    itemsSummary: "1x Samsung Galaxy A54 256GB + Cargador 25W",
+    paymentMethod: "Tarjeta",
+    total: 685000,
+  },
+  {
+    id: "VTA-84860",
+    time: "13:45 hs",
+    itemsSummary: "1x Módulo Display iPhone 13 Pro OLED",
+    paymentMethod: "Transferencia",
+    total: 125000,
+  },
+  {
+    id: "VTA-84841",
+    time: "12:20 hs",
+    itemsSummary: "1x Cargador Rápido Samsung 25W + Cable USB-C",
+    paymentMethod: "Efectivo",
+    total: 28000,
+  },
+  {
+    id: "VTA-84819",
+    time: "11:10 hs",
+    itemsSummary: "1x Motorola Moto G84 5G",
+    paymentMethod: "Transferencia",
+    total: 295650,
+  },
+  {
+    id: "VTA-84802",
+    time: "09:50 hs",
+    itemsSummary: "2x Cargador Rápido Samsung 25W USB-C",
+    paymentMethod: "Efectivo",
+    total: 22000,
+  },
+]
+
 interface StockAlertItem {
   sku: string
   product: string
@@ -143,6 +204,9 @@ const getStatusBadge = (status: string) => {
 
 export default function Dashboard() {
   const [saleModalOpen, setSaleModalOpen] = useState(false)
+  const [activeTab, setActiveTab] = useState<"orders" | "sales">("orders")
+  const [todaySales, setTodaySales] =
+    useState<TodaySaleRow[]>(initialTodaySales)
   const [todaySalesTotal, setTodaySalesTotal] = useState(1240500)
   const [stockAlerts, setStockAlerts] =
     useState<StockAlertItem[]>(initialStockAlerts)
@@ -153,6 +217,19 @@ export default function Dashboard() {
 
   const handleSaleRegistered = (sale: SaleRecord) => {
     setTodaySalesTotal((prev) => prev + sale.total)
+    setTodaySales((prev) => [
+      {
+        id: sale.id,
+        time: `${sale.time} hs`,
+        itemsSummary: sale.items
+          .map((i) => `${i.quantity}x ${i.name}`)
+          .join(", "),
+        paymentMethod: sale.paymentSummary,
+        total: sale.total,
+      },
+      ...prev,
+    ])
+    setActiveTab("sales")
   }
 
   const openRestockModal = (item: StockAlertItem) => {
@@ -167,7 +244,6 @@ export default function Dashboard() {
     const added = Math.max(1, Number(restockQty) || 1)
     const targetName = restockModalItem.product
 
-    // Elimina automáticamente el ítem de la lista de alertas de stock
     setStockAlerts((prev) =>
       prev.filter((item) => item.sku !== restockModalItem.sku),
     )
@@ -226,7 +302,7 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* Encabezado responsive con botón prominente "+ Registrar Venta" */}
+      {/* Encabezado responsive con botones claramente diferenciados */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 font-heading tracking-tight">
@@ -237,22 +313,27 @@ export default function Dashboard() {
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2.5 sm:gap-3">
+          {/* 1. Botón Blanco: Descargar Reporte */}
           <Button
             variant="outline"
-            className="text-xs py-2.5 px-3.5 sm:px-4 bg-white"
+            className="text-xs sm:text-sm py-2.5 px-4 bg-white"
           >
-            <Download className="w-3.5 h-3.5 mr-1.5" />
+            <Download className="w-4 h-4 mr-1.5" />
             Descargar Reporte
           </Button>
+
+          {/* 2. Botón Azul Corporativo Sólido: + Nueva Orden */}
           <Link to="/servicio-tecnico/nueva">
             <Button
-              variant="outline"
-              className="text-xs py-2.5 px-3.5 sm:px-4 bg-white border-primary/30 text-primary hover:bg-blue-50/50"
+              variant="primary"
+              className="text-xs sm:text-sm py-2.5 px-4 sm:px-5 font-bold shadow-md hover:shadow-lg"
             >
-              <Wrench className="w-3.5 h-3.5 mr-1.5" />
+              <Plus className="w-4 h-4 mr-1.5 stroke-[2.5]" />
               Nueva Orden
             </Button>
           </Link>
+
+          {/* 3. Botón Naranja: + Registrar Venta */}
           <Button
             variant="secondary"
             onClick={() => setSaleModalOpen(true)}
@@ -264,7 +345,7 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Grid de Métricas / Estadísticas en tarjetas blancas con sombras suaves */}
+      {/* Grid de Métricas / Estadísticas */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
         {stats.map((item) => (
           <Card
@@ -282,7 +363,6 @@ export default function Dashboard() {
                 <h3 className="text-lg sm:text-xl font-bold text-slate-900 truncate font-heading mt-0.5">
                   {item.value}
                 </h3>
-                {/* Texto de comparativa sutil y ligero */}
                 <p className="text-xs text-gray-500 font-normal mt-0.5 truncate">
                   {item.subtitle}
                 </p>
@@ -292,108 +372,182 @@ export default function Dashboard() {
         ))}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Tabla de Órdenes Ingresadas en el Día Actual con scroll interno */}
-        <Card className="lg:col-span-2 flex flex-col overflow-hidden">
-          <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
-            <div>
-              <div className="flex items-center gap-2">
-                <h2 className="text-base sm:text-lg font-bold text-slate-900 font-heading">
-                  Órdenes de Trabajo del Día
-                </h2>
-                <Badge variant="blue">{todayOrders.length} hoy</Badge>
-              </div>
-              <p className="text-2xs sm:text-xs text-slate-400 mt-0.5">
-                Listado completo de equipos ingresados durante la jornada actual
-              </p>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-stretch">
+        {/* Tarjeta Principal Izquierda con Sistema de Pestañas (Tabs): 🔧 Órdenes del Día y 🛒 Ventas de Hoy */}
+        <Card className="lg:col-span-2 flex flex-col overflow-hidden h-[480px]">
+          <div className="px-5 py-3.5 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shrink-0 bg-white">
+            {/* Selector de Pestañas Grande y Claro */}
+            <div className="inline-flex rounded-2xl bg-slate-100 p-1 border border-slate-200/70">
+              <button
+                type="button"
+                onClick={() => setActiveTab("orders")}
+                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer ${
+                  activeTab === "orders"
+                    ? "bg-[#00559D] text-white shadow-xs"
+                    : "text-slate-600 hover:text-slate-900"
+                }`}
+              >
+                <span aria-hidden="true">🔧</span>
+                <span>Órdenes del Día</span>
+                <span
+                  className={`px-1.5 py-0.2 rounded-full text-2xs font-bold ${
+                    activeTab === "orders"
+                      ? "bg-white/20 text-white"
+                      : "bg-slate-200 text-slate-700"
+                  }`}
+                >
+                  {todayOrders.length}
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setActiveTab("sales")}
+                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer ${
+                  activeTab === "sales"
+                    ? "bg-[#00559D] text-white shadow-xs"
+                    : "text-slate-600 hover:text-slate-900"
+                }`}
+              >
+                <span aria-hidden="true">🛒</span>
+                <span>Ventas de Hoy</span>
+                <span
+                  className={`px-1.5 py-0.2 rounded-full text-2xs font-bold ${
+                    activeTab === "sales"
+                      ? "bg-white/20 text-white"
+                      : "bg-slate-200 text-slate-700"
+                  }`}
+                >
+                  {todaySales.length}
+                </span>
+              </button>
             </div>
+
             <Link
-              to="/servicio-tecnico"
-              className="text-xs font-semibold text-primary hover:text-primary-dark flex items-center group"
+              to={activeTab === "orders" ? "/servicio-tecnico" : "/ventas"}
+              className="text-xs font-semibold text-primary hover:text-primary-dark flex items-center group self-end sm:self-center"
             >
-              Ver todas{" "}
+              {activeTab === "orders" ? "Ver taller" : "Ir a ventas"}{" "}
               <ArrowRight className="ml-1 w-3.5 h-3.5 transition-transform group-hover:translate-x-0.5" />
             </Link>
           </div>
 
-          {/* Contenedor con scroll interno para no romper el alto de la pantalla */}
-          <div className="overflow-x-auto max-h-[370px] overflow-y-auto flex-1">
-            <table className="min-w-full divide-y divide-slate-100">
-              <thead className="bg-slate-50/95 sticky top-0 z-10 backdrop-blur-xs">
-                <tr>
-                  <th className="px-4 sm:px-5 py-3 text-left text-2xs font-bold text-slate-500 uppercase tracking-wider">
-                    Orden / Hora
-                  </th>
-                  <th className="px-4 sm:px-5 py-3 text-left text-2xs font-bold text-slate-500 uppercase tracking-wider">
-                    Cliente
-                  </th>
-                  <th className="px-4 sm:px-5 py-3 text-left text-2xs font-bold text-slate-500 uppercase tracking-wider">
-                    Equipo
-                  </th>
-                  <th className="px-4 sm:px-5 py-3 text-left text-2xs font-bold text-slate-500 uppercase tracking-wider">
-                    Estado
-                  </th>
-                  <th className="px-4 sm:px-5 py-3 text-right text-2xs font-bold text-slate-500 uppercase tracking-wider">
-                    Acción
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-slate-100">
-                {todayOrders.map((order) => (
-                  <tr
-                    key={order.id}
-                    className="hover:bg-slate-50/80 transition-colors"
-                  >
-                    <td className="px-4 sm:px-5 py-3.5 whitespace-nowrap">
-                      <span className="block text-xs font-bold text-primary">
-                        {order.id}
-                      </span>
-                      <span className="flex items-center gap-1 text-2xs text-slate-400 mt-0.5">
-                        <Clock className="w-3 h-3" />
-                        {order.time}
-                      </span>
-                    </td>
-                    <td className="px-4 sm:px-5 py-3.5 whitespace-nowrap text-xs font-medium text-slate-900">
-                      {order.client}
-                    </td>
-                    <td className="px-4 sm:px-5 py-3.5 whitespace-nowrap text-xs text-slate-500">
-                      {order.device}
-                    </td>
-                    <td className="px-4 sm:px-5 py-3.5 whitespace-nowrap text-xs">
-                      {getStatusBadge(order.status)}
-                    </td>
-                    <td className="px-4 sm:px-5 py-3.5 whitespace-nowrap text-right text-xs font-medium">
-                      <Link
-                        to={`/servicio-tecnico/${order.id.replace("OT-", "")}`}
-                        className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 inline-block transition-colors"
-                        aria-label={`Ver detalles de ${order.id}`}
-                      >
-                        <MoreVertical className="w-4 h-4" />
-                      </Link>
-                    </td>
+          {/* Listado a altura completa con scroll vertical limpio (sin pie de tabla ni espacio sobrante) */}
+          <div className="flex-1 min-h-0 overflow-y-auto overflow-x-auto">
+            {activeTab === "orders" ? (
+              <table className="min-w-full divide-y divide-slate-100">
+                <thead className="bg-slate-50/95 sticky top-0 z-10 backdrop-blur-xs">
+                  <tr>
+                    <th className="px-4 sm:px-5 py-3 text-left text-2xs font-bold text-slate-500 uppercase tracking-wider">
+                      Orden / Hora
+                    </th>
+                    <th className="px-4 sm:px-5 py-3 text-left text-2xs font-bold text-slate-500 uppercase tracking-wider">
+                      Cliente
+                    </th>
+                    <th className="px-4 sm:px-5 py-3 text-left text-2xs font-bold text-slate-500 uppercase tracking-wider">
+                      Equipo
+                    </th>
+                    <th className="px-4 sm:px-5 py-3 text-left text-2xs font-bold text-slate-500 uppercase tracking-wider">
+                      Estado
+                    </th>
+                    <th className="px-4 sm:px-5 py-3 text-right text-2xs font-bold text-slate-500 uppercase tracking-wider">
+                      Acción
+                    </th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          <div className="px-5 py-3.5 bg-slate-50/60 border-t border-slate-100 flex items-center justify-between">
-            <span className="text-2xs text-slate-500">
-              Total de hoy: {todayOrders.length} órdenes ingresadas
-            </span>
-            <button
-              type="button"
-              onClick={() => setSaleModalOpen(true)}
-              className="text-xs font-bold text-[#F56C00] hover:text-[#e65c00] flex items-center gap-1 cursor-pointer"
-            >
-              <ShoppingCart className="w-3.5 h-3.5" />
-              Facturar repuesto o venta rápida →
-            </button>
+                </thead>
+                <tbody className="bg-white divide-y divide-slate-100">
+                  {todayOrders.map((order) => (
+                    <tr
+                      key={order.id}
+                      className="hover:bg-slate-50/80 transition-colors"
+                    >
+                      <td className="px-4 sm:px-5 py-3.5 whitespace-nowrap">
+                        <span className="block text-xs font-bold text-primary">
+                          {order.id}
+                        </span>
+                        <span className="flex items-center gap-1 text-2xs text-slate-400 mt-0.5">
+                          <Clock className="w-3 h-3" />
+                          {order.time}
+                        </span>
+                      </td>
+                      <td className="px-4 sm:px-5 py-3.5 whitespace-nowrap text-xs font-medium text-slate-900">
+                        {order.client}
+                      </td>
+                      <td className="px-4 sm:px-5 py-3.5 whitespace-nowrap text-xs text-slate-500">
+                        {order.device}
+                      </td>
+                      <td className="px-4 sm:px-5 py-3.5 whitespace-nowrap text-xs">
+                        {getStatusBadge(order.status)}
+                      </td>
+                      <td className="px-4 sm:px-5 py-3.5 whitespace-nowrap text-right text-xs font-medium">
+                        <Link
+                          to={`/servicio-tecnico/${order.id.replace("OT-", "")}`}
+                          className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 inline-block transition-colors"
+                          aria-label={`Ver detalles de ${order.id}`}
+                        >
+                          <MoreVertical className="w-4 h-4" />
+                        </Link>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            ) : (
+              <table className="min-w-full divide-y divide-slate-100">
+                <thead className="bg-slate-50/95 sticky top-0 z-10 backdrop-blur-xs">
+                  <tr>
+                    <th className="px-4 sm:px-5 py-3 text-left text-2xs font-bold text-slate-500 uppercase tracking-wider">
+                      Hora
+                    </th>
+                    <th className="px-4 sm:px-5 py-3 text-left text-2xs font-bold text-slate-500 uppercase tracking-wider">
+                      Artículos
+                    </th>
+                    <th className="px-4 sm:px-5 py-3 text-left text-2xs font-bold text-slate-500 uppercase tracking-wider">
+                      Método de Pago
+                    </th>
+                    <th className="px-4 sm:px-5 py-3 text-right text-2xs font-bold text-slate-500 uppercase tracking-wider">
+                      Total
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-slate-100">
+                  {todaySales.map((sale) => (
+                    <tr
+                      key={sale.id}
+                      className="hover:bg-slate-50/80 transition-colors"
+                    >
+                      <td className="px-4 sm:px-5 py-3.5 whitespace-nowrap">
+                        <span className="block text-xs font-bold text-primary">
+                          {sale.id}
+                        </span>
+                        <span className="flex items-center gap-1 text-2xs text-slate-400 mt-0.5">
+                          <Clock className="w-3 h-3" />
+                          {sale.time}
+                        </span>
+                      </td>
+                      <td className="px-4 sm:px-5 py-3.5 text-xs font-semibold text-slate-800 max-w-xs truncate">
+                        {sale.itemsSummary}
+                      </td>
+                      <td className="px-4 sm:px-5 py-3.5 whitespace-nowrap">
+                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-2xs font-semibold bg-slate-100 text-slate-700">
+                          <CreditCard className="w-3 h-3 text-primary" />
+                          {sale.paymentMethod}
+                        </span>
+                      </td>
+                      <td className="px-4 sm:px-5 py-3.5 whitespace-nowrap text-right text-xs sm:text-sm font-extrabold text-emerald-700 font-mono">
+                        $ {sale.total.toLocaleString("es-AR")}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
           </div>
         </Card>
 
-        {/* Alertas de Stock (sin badge "Urgente" y con acción "Reponer →" funcional) */}
-        <Card className="flex flex-col overflow-hidden">
-          <div className="px-5 py-4 border-b border-slate-100">
+        {/* Alertas de Stock nivelada en altura (h-[480px]) */}
+        <Card className="flex flex-col overflow-hidden h-[480px]">
+          <div className="px-5 py-4 border-b border-slate-100 shrink-0">
             <h2 className="text-base sm:text-lg font-bold text-slate-900 font-heading">
               Alertas de Stock
             </h2>
@@ -402,7 +556,7 @@ export default function Dashboard() {
             </p>
           </div>
 
-          <div className="p-4 sm:p-5 flex-1 flex flex-col justify-between space-y-4">
+          <div className="p-4 sm:p-5 flex-1 min-h-0 flex flex-col justify-between">
             {stockAlerts.length === 0 ? (
               <div className="py-12 px-4 text-center flex flex-col items-center justify-center flex-1">
                 <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center mb-3">
@@ -416,7 +570,7 @@ export default function Dashboard() {
                 </p>
               </div>
             ) : (
-              <ul className="space-y-3">
+              <ul className="space-y-3 overflow-y-auto pr-1">
                 {stockAlerts.map((item) => {
                   const isOut = item.stock === 0
                   const percentage = Math.min(
@@ -474,7 +628,6 @@ export default function Dashboard() {
                         </span>
                       </div>
 
-                      {/* Barra de nivel de stock y botón funcional "Reponer →" */}
                       <div className="mt-2.5 flex items-center gap-2">
                         <div className="flex-1 h-1.5 bg-white/80 rounded-full overflow-hidden border border-slate-200/60">
                           <div
@@ -500,8 +653,8 @@ export default function Dashboard() {
               </ul>
             )}
 
-            <div className="pt-3 border-t border-slate-100 flex flex-col sm:flex-row gap-2">
-              <Link to="/inventario" className="flex-1">
+            <div className="pt-3 border-t border-slate-100 shrink-0 mt-3">
+              <Link to="/inventario" className="block">
                 <Button
                   variant="primary"
                   className="w-full text-xs py-2.5 font-semibold"
@@ -568,7 +721,7 @@ export default function Dashboard() {
         </Modal>
       )}
 
-      {/* Modal Avanzado de Registrar Venta */}
+      {/* Modal de Registrar Venta */}
       <RegisterSaleModal
         isOpen={saleModalOpen}
         onClose={() => setSaleModalOpen(false)}
