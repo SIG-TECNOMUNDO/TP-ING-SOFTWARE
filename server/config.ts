@@ -7,11 +7,7 @@ const schema = z.object({
     .enum(["development", "test", "production"])
     .default("development"),
   PORT: z.coerce.number().int().positive().default(3001),
-  DATABASE_URL: z
-    .string()
-    .default(
-      "postgresql://sig_user:sig_password@localhost:5432/sig_tecnomundo",
-    ),
+  DATABASE_URL: z.string().min(1, "DATABASE_URL es obligatoria"),
   JWT_SECRET: z
     .string()
     .min(32)

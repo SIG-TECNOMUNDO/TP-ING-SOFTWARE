@@ -6,16 +6,15 @@ Sistema web de inventario, ventas y servicio técnico para las sucursales Yofre 
 
 - Frontend: React 19, Vite, TypeScript y Tailwind CSS 4.
 - Backend: Node.js, Express, TypeScript y validación con Zod.
-- Datos: PostgreSQL 17, migraciones SQL explícitas y auditoría.
+- Datos: Supabase (PostgreSQL en la nube), migraciones SQL explícitas y auditoría.
 - Seguridad: JWT en cookie `httpOnly`, contraseñas con bcrypt, roles y alcance por sucursal.
 
 ## Puesta en marcha
 
-1. Copiá `.env.example` como `.env` y definí `JWT_SECRET`.
-2. Iniciá PostgreSQL: `docker compose up -d postgres`.
-3. Aplicá el esquema: `corepack pnpm@10.34.3 db:migrate`.
-4. Cargá los datos: `corepack pnpm@10.34.3 db:seed`.
-5. Iniciá frontend y API: `corepack pnpm@10.34.3 dev`.
+1. Copiá `.env.example` como `.env` y configurá las credenciales de Supabase.
+2. Aplicá el esquema (opcional si la base ya está creada): `npm run db:migrate`.
+3. Cargá los datos iniciales (opcional si ya está sembrada): `npm run db:seed`.
+4. Iniciá frontend y API: `npm run dev`.
 
 El frontend se abre en `http://localhost:8443` y la API en `http://localhost:3001/api`.
 

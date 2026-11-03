@@ -11,6 +11,9 @@ const isRemote =
 export const pool = new Pool({
   connectionString: env.DATABASE_URL,
   ssl: isRemote ? { rejectUnauthorized: false } : undefined,
+  max: 10,
+  idleTimeoutMillis: 30000,
+  connectionTimeoutMillis: 10000,
 })
 
 pool.on("error", (error) => {
