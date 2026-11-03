@@ -14,8 +14,7 @@ import {
   CheckSquare,
   Layers,
   Sparkles,
-  Check,
-  X,
+  AlertCircle,
 } from "lucide-react"
 
 interface InventoryItem {
@@ -93,20 +92,43 @@ const CATEGORIES = [
   "Audio",
 ]
 
+const PRODUCT_CATEGORIES = ["Equipos", "Repuestos", "Accesorios", "Audio"]
+
+interface ProductFormState {
+  id: string
+  name: string
+  category: string
+  price: string
+  stockYofre: string
+  stockAlta: string
+  minStock: string
+}
+
 export default function Inventory() {
   const [inventory, setInventory] = useState<InventoryItem[]>(initialInventory)
   const [searchTerm, setSearchTerm] = useState("")
   const [categoryFilter, setCategoryFilter] = useState("Todas las categorías")
 
-  // Edición in-line (precio o stock)
-  const [editingCell, setEditingCell] = useState<{
-    id: string
-    field: "price" | "stockYofre" | "stockAlta"
-  } | null>(null)
-  const [editingValue, setEditingValue] = useState("")
-
   // Selección múltiple
   const [selectedIds, setSelectedIds] = useState<string[]>([])
+
+  // Modal ABM de Producto (Crear / Editar)
+  const [productModalMode, setProductModalMode] = useState<
+    "create" | "edit" | null
+  >(null)
+  const [editingOriginalId, setEditingOriginalId] = useState<string | null>(
+    null,
+  )
+  const [productForm, setProductForm] = useState<ProductFormState>({
+    id: "",
+    name: "",
+    category: "Repuestos",
+    price: "",
+    stockYofre: "0",
+    stockAlta: "0",
+    minStock: "3",
+  })
+  const [productFormError, setProductFormError] = useState<string | null>(null)
 
   // Modal de Actualización Masiva
   const [showBulkModal, setShowBulkModal] = useState(false)
@@ -123,40 +145,104 @@ export default function Inventory() {
     window.setTimeout(() => setToastMessage(null), 4000)
   }
 
-  // Iniciar edición in-line al hacer clic en Precio o Stock
-  const startInlineEdit = (
-    item: InventoryItem,
-    field: "price" | "stockYofre" | "stockAlta",
-  ) => {
-    setEditingCell({ id: item.id, field })
-    setEditingValue(String(item[field]))
+  // Abrir Modal "+ Nuevo Producto"
+  const openCreateModal = () => {
+    const nextNum = inventory.length + 1
+    const suggestedSku = `PRD-${String(nextNum).padStart(3, "0")}`
+    setProductForm({
+      id: suggestedSku,
+      name: "",
+      category: "Repuestos",
+      price: "",
+      stockYofre: "0",
+      stockAlta: "0",
+      minStock: "3",
+    })
+    setEditingOriginalId(null)
+    setProductFormError(null)
+    setProductModalMode("create")
   }
 
-  // Guardar edición in-line
-  const saveInlineEdit = () => {
-    if (!editingCell) return
-    const numVal = Math.max(0, Math.round(Number(editingValue) || 0))
-    const targetItem = inventory.find((i) => i.id === editingCell.id)
+  // Abrir Modal "Editar Producto"
+  const openEditModal = (item: InventoryItem) => {
+    setProductForm({
+      id: item.id,
+      name: item.name,
+      category: item.category,
+      price: String(item.price),
+      stockYofre: String(item.stockYofre),
+      stockAlta: String(item.stockAlta),
+      minStock: String(item.minStock),
+    })
+    setEditingOriginalId(item.id)
+    setProductFormError(null)
+    setProductModalMode("edit")
+  }
 
-    setInventory((prev) =>
-      prev.map((item) =>
-        item.id === editingCell.id
-          ? { ...item, [editingCell.field]: numVal }
-          : item,
-      ),
-    )
+  const closeProductModal = () => {
+    setProductModalMode(null)
+    setEditingOriginalId(null)
+    setProductFormError(null)
+  }
 
-    if (targetItem) {
-      const label =
-        editingCell.field === "price"
-          ? `Precio actualizado a $ ${numVal.toLocaleString("es-AR")}`
-          : editingCell.field === "stockYofre"
-            ? `Stock Yofre actualizado a ${numVal} un.`
-            : `Stock Alta Cba actualizado a ${numVal} un.`
-      triggerToast(`${targetItem.name}: ${label}`)
+  // Guardar Producto (Alta o Edición completa)
+  const handleSaveProduct = (e: React.FormEvent) => {
+    e.preventDefault()
+    setProductFormError(null)
+
+    const cleanId = productForm.id.trim().toUpperCase()
+    const cleanName = productForm.name.trim()
+    const numPrice = Number(productForm.price)
+    const numYofre = Math.max(0, Math.round(Number(productForm.stockYofre) || 0))
+    const numAlta = Math.max(0, Math.round(Number(productForm.stockAlta) || 0))
+    const numMin = Math.max(0, Math.round(Number(productForm.minStock) || 0))
+
+    if (!cleanId) {
+      setProductFormError("El código o SKU del producto es obligatorio.")
+      return
+    }
+    if (!cleanName) {
+      setProductFormError("El nombre del producto es obligatorio.")
+      return
+    }
+    if (isNaN(numPrice) || numPrice <= 0) {
+      setProductFormError("Ingresá un precio de venta válido mayor a 0.")
+      return
     }
 
-    setEditingCell(null)
+    const duplicateSku = inventory.some(
+      (item) =>
+        item.id.toUpperCase() === cleanId &&
+        item.id !== editingOriginalId,
+    )
+    if (duplicateSku) {
+      setProductFormError(`Ya existe otro producto con el código ${cleanId}.`)
+      return
+    }
+
+    const updatedItem: InventoryItem = {
+      id: cleanId,
+      name: cleanName,
+      category: productForm.category,
+      price: Math.round(numPrice),
+      stockYofre: numYofre,
+      stockAlta: numAlta,
+      minStock: numMin,
+    }
+
+    if (productModalMode === "create") {
+      setInventory((prev) => [updatedItem, ...prev])
+      triggerToast(`Producto "${updatedItem.name}" (${updatedItem.id}) agregado al inventario.`)
+    } else {
+      setInventory((prev) =>
+        prev.map((item) =>
+          item.id === editingOriginalId ? updatedItem : item,
+        ),
+      )
+      triggerToast(`Producto "${updatedItem.name}" actualizado correctamente.`)
+    }
+
+    closeProductModal()
   }
 
   // Productos visibles según búsqueda y categoría
@@ -252,10 +338,8 @@ export default function Inventory() {
             Inventario
           </h1>
           <p className="mt-0.5 text-xs sm:text-sm text-slate-500">
-            Hacé clic directamente sobre cualquier{" "}
-            <strong className="text-slate-700">Precio</strong> o{" "}
-            <strong className="text-slate-700">Stock</strong> en la tabla para
-            editarlo in-line al instante
+            Gestión centralizada de productos, precios, categorías y stock por
+            sucursal
           </p>
         </div>
 
@@ -278,7 +362,11 @@ export default function Inventory() {
             )}
           </Button>
 
-          <Button icon={Plus} className="font-bold shadow-md">
+          <Button
+            icon={Plus}
+            onClick={openCreateModal}
+            className="font-bold shadow-md"
+          >
             Nuevo Producto
           </Button>
         </div>
@@ -398,7 +486,7 @@ export default function Inventory() {
         </div>
       </Card>
 
-      {/* Tabla Principal Mejorada con Edición In-Line */}
+      {/* Tabla Principal de Inventario */}
       <Card className="overflow-hidden">
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-slate-100">
@@ -423,13 +511,13 @@ export default function Inventory() {
                   Categoría
                 </th>
                 <th className="px-5 py-3.5 text-left text-2xs font-bold text-slate-500 uppercase tracking-wider">
-                  Precio de Venta (In-Line)
+                  Precio de Venta
                 </th>
                 <th className="px-5 py-3.5 text-center text-2xs font-bold text-slate-500 uppercase tracking-wider">
-                  Stock Yofre (In-Line)
+                  Stock Yofre
                 </th>
                 <th className="px-5 py-3.5 text-center text-2xs font-bold text-slate-500 uppercase tracking-wider">
-                  Stock Alta Cba (In-Line)
+                  Stock Alta Cba
                 </th>
                 <th className="px-5 py-3.5 text-right text-2xs font-bold text-slate-500 uppercase tracking-wider">
                   Acciones
@@ -439,14 +527,6 @@ export default function Inventory() {
             <tbody className="bg-white divide-y divide-slate-100">
               {visibleItems.map((item) => {
                 const isSelected = selectedIds.includes(item.id)
-                const isEditingPrice =
-                  editingCell?.id === item.id && editingCell.field === "price"
-                const isEditingYofre =
-                  editingCell?.id === item.id &&
-                  editingCell.field === "stockYofre"
-                const isEditingAlta =
-                  editingCell?.id === item.id &&
-                  editingCell.field === "stockAlta"
 
                 return (
                   <tr
@@ -468,14 +548,18 @@ export default function Inventory() {
                     </td>
 
                     <td className="px-5 py-4 whitespace-nowrap">
-                      <div className="flex flex-col">
-                        <span className="text-xs sm:text-sm font-bold text-slate-900">
+                      <button
+                        type="button"
+                        onClick={() => openEditModal(item)}
+                        className="text-left group cursor-pointer"
+                      >
+                        <span className="block text-xs sm:text-sm font-bold text-slate-900 group-hover:text-[#00559D] transition-colors">
                           {item.name}
                         </span>
-                        <span className="text-2xs text-slate-400 font-mono">
-                          {item.id}
+                        <span className="block text-2xs text-slate-400 font-mono">
+                          {item.id} • Mínimo alerta: {item.minStock} un.
                         </span>
-                      </div>
+                      </button>
                     </td>
 
                     <td className="px-5 py-4 whitespace-nowrap">
@@ -494,146 +578,46 @@ export default function Inventory() {
                       </Badge>
                     </td>
 
-                    {/* PRECIO DE VENTA CON EDICIÓN IN-LINE */}
-                    <td className="px-5 py-4 whitespace-nowrap">
-                      {isEditingPrice ? (
-                        <div className="inline-flex items-center gap-1">
-                          <span className="text-xs font-bold text-slate-500">
-                            $
-                          </span>
-                          <input
-                            type="number"
-                            min="0"
-                            autoFocus
-                            value={editingValue}
-                            onChange={(e) => setEditingValue(e.target.value)}
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter") saveInlineEdit()
-                              if (e.key === "Escape") setEditingCell(null)
-                            }}
-                            className="w-28 px-2.5 py-1 text-xs font-mono font-bold rounded-lg border border-primary bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-primary/20"
-                          />
-                          <button
-                            type="button"
-                            onClick={saveInlineEdit}
-                            className="p-1 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 cursor-pointer"
-                            title="Guardar precio"
-                          >
-                            <Check className="w-3.5 h-3.5" />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setEditingCell(null)}
-                            className="p-1 rounded-lg bg-slate-200 text-slate-600 hover:bg-slate-300 cursor-pointer"
-                            title="Cancelar"
-                          >
-                            <X className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={() => startInlineEdit(item, "price")}
-                          className="group inline-flex items-center gap-1.5 px-2.5 py-1 -mx-2.5 rounded-xl text-xs sm:text-sm text-slate-900 font-bold font-mono hover:bg-blue-50 hover:text-[#00559D] border border-transparent hover:border-blue-200/80 transition-all cursor-pointer"
-                          title="Clic para editar precio in-line"
-                        >
-                          <span>$ {item.price.toLocaleString("es-AR")}</span>
-                          <Edit className="w-3 h-3 opacity-0 group-hover:opacity-100 text-primary transition-opacity" />
-                        </button>
-                      )}
+                    <td className="px-5 py-4 whitespace-nowrap text-xs sm:text-sm font-bold font-mono text-slate-900">
+                      $ {item.price.toLocaleString("es-AR")}
                     </td>
 
-                    {/* STOCK YOFRE CON EDICIÓN IN-LINE */}
                     <td className="px-5 py-4 whitespace-nowrap text-center">
-                      {isEditingYofre ? (
-                        <div className="inline-flex items-center justify-center gap-1">
-                          <input
-                            type="number"
-                            min="0"
-                            autoFocus
-                            value={editingValue}
-                            onChange={(e) => setEditingValue(e.target.value)}
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter") saveInlineEdit()
-                              if (e.key === "Escape") setEditingCell(null)
-                            }}
-                            className="w-16 px-2 py-1 text-center text-xs font-mono font-bold rounded-lg border border-primary bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-primary/20"
-                          />
-                          <button
-                            type="button"
-                            onClick={saveInlineEdit}
-                            className="p-1 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 cursor-pointer"
-                          >
-                            <Check className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={() => startInlineEdit(item, "stockYofre")}
-                          title="Clic para modificar stock in-line"
-                          className={`inline-flex items-center justify-center min-w-8 px-2.5 py-1 rounded-full text-xs font-bold border transition-all cursor-pointer hover:scale-105 ${
-                            item.stockYofre === 0
-                              ? "bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100"
-                              : item.stockYofre <= item.minStock
-                                ? "bg-amber-50 text-amber-800 border-amber-200 hover:bg-amber-100"
-                                : "bg-slate-100 text-slate-700 border-slate-200 hover:bg-blue-50 hover:text-primary"
-                          }`}
-                        >
-                          {item.stockYofre} un.
-                        </button>
-                      )}
+                      <span
+                        className={`inline-flex items-center justify-center min-w-8 px-2.5 py-1 rounded-full text-xs font-bold border ${
+                          item.stockYofre === 0
+                            ? "bg-rose-50 text-rose-700 border-rose-200"
+                            : item.stockYofre <= item.minStock
+                              ? "bg-amber-50 text-amber-800 border-amber-200"
+                              : "bg-slate-100 text-slate-700 border-slate-200"
+                        }`}
+                      >
+                        {item.stockYofre} un.
+                      </span>
                     </td>
 
-                    {/* STOCK ALTA CÓRDOBA CON EDICIÓN IN-LINE */}
                     <td className="px-5 py-4 whitespace-nowrap text-center">
-                      {isEditingAlta ? (
-                        <div className="inline-flex items-center justify-center gap-1">
-                          <input
-                            type="number"
-                            min="0"
-                            autoFocus
-                            value={editingValue}
-                            onChange={(e) => setEditingValue(e.target.value)}
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter") saveInlineEdit()
-                              if (e.key === "Escape") setEditingCell(null)
-                            }}
-                            className="w-16 px-2 py-1 text-center text-xs font-mono font-bold rounded-lg border border-primary bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-primary/20"
-                          />
-                          <button
-                            type="button"
-                            onClick={saveInlineEdit}
-                            className="p-1 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 cursor-pointer"
-                          >
-                            <Check className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={() => startInlineEdit(item, "stockAlta")}
-                          title="Clic para modificar stock in-line"
-                          className={`inline-flex items-center justify-center min-w-8 px-2.5 py-1 rounded-full text-xs font-bold border transition-all cursor-pointer hover:scale-105 ${
-                            item.stockAlta === 0
-                              ? "bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100"
-                              : item.stockAlta <= item.minStock
-                                ? "bg-amber-50 text-amber-800 border-amber-200 hover:bg-amber-100"
-                                : "bg-slate-100 text-slate-700 border-slate-200 hover:bg-blue-50 hover:text-primary"
-                          }`}
-                        >
-                          {item.stockAlta} un.
-                        </button>
-                      )}
+                      <span
+                        className={`inline-flex items-center justify-center min-w-8 px-2.5 py-1 rounded-full text-xs font-bold border ${
+                          item.stockAlta === 0
+                            ? "bg-rose-50 text-rose-700 border-rose-200"
+                            : item.stockAlta <= item.minStock
+                              ? "bg-amber-50 text-amber-800 border-amber-200"
+                              : "bg-slate-100 text-slate-700 border-slate-200"
+                        }`}
+                      >
+                        {item.stockAlta} un.
+                      </span>
                     </td>
 
                     <td className="px-5 py-4 whitespace-nowrap text-right text-sm font-medium">
                       <div className="flex justify-end space-x-1.5">
                         <button
                           type="button"
-                          onClick={() => startInlineEdit(item, "price")}
-                          className="text-slate-400 hover:text-primary transition-colors p-1.5 rounded-lg hover:bg-slate-100 cursor-pointer"
-                          title="Editar precio in-line"
+                          onClick={() => openEditModal(item)}
+                          className="text-slate-500 hover:text-primary transition-colors p-1.5 rounded-lg hover:bg-blue-50 cursor-pointer"
+                          title="Editar Producto"
+                          aria-label={`Editar ${item.name}`}
                         >
                           <Edit className="h-4 w-4" />
                         </button>
@@ -643,10 +627,11 @@ export default function Inventory() {
                             setInventory((prev) =>
                               prev.filter((p) => p.id !== item.id),
                             )
-                            triggerToast(`Producto ${item.name} eliminado.`)
+                            triggerToast(`Producto "${item.name}" eliminado.`)
                           }}
                           className="text-slate-400 hover:text-rose-600 transition-colors p-1.5 rounded-lg hover:bg-rose-50 cursor-pointer"
                           title="Eliminar"
+                          aria-label={`Eliminar ${item.name}`}
                         >
                           <Trash2 className="h-4 w-4" />
                         </button>
@@ -692,6 +677,184 @@ export default function Inventory() {
           </div>
         </div>
       </Card>
+
+      {/* Modal de Alta / Edición Completa de Producto */}
+      {productModalMode && (
+        <Modal
+          title={
+            productModalMode === "create"
+              ? "Nuevo Producto"
+              : "Editar Producto"
+          }
+          onClose={closeProductModal}
+        >
+          <form onSubmit={handleSaveProduct} className="space-y-4">
+            {productFormError && (
+              <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl flex items-start space-x-2">
+                <AlertCircle className="h-5 w-5 text-rose-500 shrink-0 mt-0.5" />
+                <span className="text-xs text-rose-700 font-medium">
+                  {productFormError}
+                </span>
+              </div>
+            )}
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+              <div>
+                <Label htmlFor="prod-sku">Código / SKU *</Label>
+                <Input
+                  id="prod-sku"
+                  type="text"
+                  required
+                  value={productForm.id}
+                  onChange={(e) =>
+                    setProductForm((prev) => ({ ...prev, id: e.target.value }))
+                  }
+                  placeholder="Ej. PRD-007"
+                  className="font-mono uppercase"
+                />
+              </div>
+
+              <div className="sm:col-span-2">
+                <Label htmlFor="prod-category">Categoría *</Label>
+                <Select
+                  id="prod-category"
+                  value={productForm.category}
+                  onChange={(e) =>
+                    setProductForm((prev) => ({
+                      ...prev,
+                      category: e.target.value,
+                    }))
+                  }
+                >
+                  {PRODUCT_CATEGORIES.map((c) => (
+                    <option key={c} value={c}>
+                      {c}
+                    </option>
+                  ))}
+                </Select>
+              </div>
+            </div>
+
+            <div>
+              <Label htmlFor="prod-name">Nombre del Producto *</Label>
+              <Input
+                id="prod-name"
+                type="text"
+                required
+                autoFocus
+                value={productForm.name}
+                onChange={(e) =>
+                  setProductForm((prev) => ({ ...prev, name: e.target.value }))
+                }
+                placeholder="Ej. Módulo Display Samsung S23 Original"
+              />
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+              <div>
+                <Label htmlFor="prod-price">Precio de Venta ($) *</Label>
+                <Input
+                  id="prod-price"
+                  type="number"
+                  min="1"
+                  required
+                  value={productForm.price}
+                  onChange={(e) =>
+                    setProductForm((prev) => ({
+                      ...prev,
+                      price: e.target.value,
+                    }))
+                  }
+                  placeholder="Ej. 85000"
+                  className="font-mono font-bold"
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="prod-min-stock">
+                  Stock Mínimo para Alertas
+                </Label>
+                <Input
+                  id="prod-min-stock"
+                  type="number"
+                  min="0"
+                  required
+                  value={productForm.minStock}
+                  onChange={(e) =>
+                    setProductForm((prev) => ({
+                      ...prev,
+                      minStock: e.target.value,
+                    }))
+                  }
+                  className="font-mono"
+                />
+              </div>
+            </div>
+
+            <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-3">
+              <span className="block text-2xs uppercase tracking-wider font-bold text-slate-500">
+                Disponibilidad por Sucursal
+              </span>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                <div>
+                  <Label htmlFor="prod-stock-yofre">
+                    Stock Sucursal Yofre (un.)
+                  </Label>
+                  <Input
+                    id="prod-stock-yofre"
+                    type="number"
+                    min="0"
+                    required
+                    value={productForm.stockYofre}
+                    onChange={(e) =>
+                      setProductForm((prev) => ({
+                        ...prev,
+                        stockYofre: e.target.value,
+                      }))
+                    }
+                    className="font-mono bg-white"
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="prod-stock-alta">
+                    Stock Sucursal Alta Cba (un.)
+                  </Label>
+                  <Input
+                    id="prod-stock-alta"
+                    type="number"
+                    min="0"
+                    required
+                    value={productForm.stockAlta}
+                    onChange={(e) =>
+                      setProductForm((prev) => ({
+                        ...prev,
+                        stockAlta: e.target.value,
+                      }))
+                    }
+                    className="font-mono bg-white"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2.5 pt-3 border-t border-slate-100">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={closeProductModal}
+              >
+                Cancelar
+              </Button>
+              <Button type="submit" variant="primary" className="font-bold">
+                {productModalMode === "create"
+                  ? "Guardar Producto"
+                  : "Guardar Cambios"}
+              </Button>
+            </div>
+          </form>
+        </Modal>
+      )}
 
       {/* Modal de Actualización Masiva de Precios */}
       {showBulkModal && (
