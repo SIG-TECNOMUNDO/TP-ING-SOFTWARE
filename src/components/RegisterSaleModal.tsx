@@ -27,7 +27,7 @@ import { useBranch } from "../context/BranchContext"
 
 export interface SaleCatalogProduct {
   id: string
-  code: string
+  code?: string
   barcode: string
   name: string
   category: string
@@ -40,56 +40,52 @@ export interface CartItem extends SaleCatalogProduct {
   quantity: number
 }
 
-export interface CompletedSaleRecord {
+export interface SaleRecord {
   id: string
   date: string
+  time: string
   seller: string
-  branch: string
-  itemsCount: number
+  branch?: string
+  items: CartItem[]
   subtotal: number
   discountAmount: number
   total: number
-  paymentMethod: string
-  paymentBreakdown?: {
-    efectivo: number
-    tarjeta: number
-    transferencia: number
-  }
+  paymentSummary: string
 }
 
 export const CATALOG_PRODUCTS: SaleCatalogProduct[] = [
   {
-    id: "2bac0ac1-eccd-4fb1-833a-d7442d088f2f",
+    id: "PRD-001",
     code: "PRD-001",
     barcode: "7790001",
-    name: "Módulo Display iPhone 13 Pro",
+    name: "Módulo Display iPhone 13 Pro OLED",
     category: "Repuestos",
     price: 125000,
     stock: 2,
-    minStock: 3,
-  },
-  {
-    id: "ab5487df-945e-47c1-a5a3-08f89fd354b5",
-    code: "PRD-002",
-    barcode: "7790002",
-    name: "Samsung Galaxy S23 Ultra 256GB",
-    category: "Equipos",
-    price: 1450000,
-    stock: 4,
-    minStock: 2,
-  },
-  {
-    id: "19e363d0-0473-42b6-ac5f-7732121b8f6b",
-    code: "PRD-003",
-    barcode: "7790003",
-    name: "Funda Silicona MagSafe iPhone 14",
-    category: "Accesorios",
-    price: 15000,
-    stock: 15,
     minStock: 5,
   },
   {
-    id: "04e93d64-bb74-4c6f-982e-ff19c8f82325",
+    id: "PRD-002",
+    code: "PRD-002",
+    barcode: "7790002",
+    name: "Funda Silicona MagSafe iPhone 14",
+    category: "Accesorios",
+    price: 15000,
+    stock: 14,
+    minStock: 5,
+  },
+  {
+    id: "PRD-003",
+    code: "PRD-003",
+    barcode: "7790003",
+    name: "Auriculares Bluetooth JBL Tune 510BT",
+    category: "Audio",
+    price: 52000,
+    stock: 8,
+    minStock: 4,
+  },
+  {
+    id: "PRD-004",
     code: "PRD-004",
     barcode: "7790004",
     name: "Batería Original Motorola G22",
@@ -99,24 +95,24 @@ export const CATALOG_PRODUCTS: SaleCatalogProduct[] = [
     minStock: 3,
   },
   {
-    id: "1a092c8f-7fff-401d-a11f-6bbf91885a2d",
+    id: "PRD-005",
     code: "PRD-005",
     barcode: "7790005",
-    name: "Auriculares JBL Tune 510BT",
-    category: "Audio",
-    price: 45000,
-    stock: 8,
-    minStock: 3,
+    name: "Vidrio Templado 9D Full Glue",
+    category: "Accesorios",
+    price: 6500,
+    stock: 25,
+    minStock: 10,
   },
   {
-    id: "6f8a92c1-12ab-4ef0-9911-3c4d5e6f7a8b",
+    id: "PRD-006",
     code: "PRD-006",
     barcode: "7790006",
-    name: "Cargador Rápido Apple 20W USB-C",
-    category: "Accesorios",
-    price: 28000,
-    stock: 1,
-    minStock: 4,
+    name: "Pin de Carga Tipo C Samsung A52",
+    category: "Repuestos",
+    price: 12000,
+    stock: 3,
+    minStock: 10,
   },
 ]
 
@@ -128,11 +124,11 @@ interface ToastAlert {
 }
 
 export function RegisterSaleForm({
-  onSaleSuccess,
+  onSaleRegistered,
   onCloseModal,
   isModal = false,
 }: {
-  onSaleSuccess?: (sale: CompletedSaleRecord) => void
+  onSaleRegistered?: (sale: SaleRecord) => void
   onCloseModal?: () => void
   isModal?: boolean
 }) {
@@ -145,17 +141,21 @@ export function RegisterSaleForm({
   const [currentDateTime, setCurrentDateTime] = useState(new Date())
 
   // Descuento
-  const [discountType, setDiscountType] = useState<"percent" | "fixed">("percent")
+  const [discountType, setDiscountType] = useState<"percent" | "fixed">(
+    "percent",
+  )
   const [discountValue, setDiscountValue] = useState<string>("")
 
   // Método de pago
   const [paymentMethod, setPaymentMethod] = useState<
     "efectivo" | "tarjeta" | "transferencia" | "mixto"
   >("efectivo")
+  const [mixedSecondaryMethod, setMixedSecondaryMethod] = useState<
+    "Transferencia" | "Tarjeta"
+  >("Transferencia")
   const [mixedPayments, setMixedPayments] = useState({
     efectivo: "",
-    tarjeta: "",
-    transferencia: "",
+    otroMedio: "",
   })
 
   // Confirmación de cancelación
@@ -197,10 +197,19 @@ export function RegisterSaleForm({
 
   // Cálculo para pago mixto
   const mixedEfectivo = Math.max(0, Number(mixedPayments.efectivo) || 0)
-  const mixedTarjeta = Math.max(0, Number(mixedPayments.tarjeta) || 0)
-  const mixedTransferencia = Math.max(0, Number(mixedPayments.transferencia) || 0)
-  const mixedTotalCovered = mixedEfectivo + mixedTarjeta + mixedTransferencia
+  const mixedOtro = Math.max(0, Number(mixedPayments.otroMedio) || 0)
+  const mixedTotalCovered = mixedEfectivo + mixedOtro
   const mixedRemaining = total - mixedTotalCovered
+
+  // Función para actualizar monto de efectivo en pago mixto y autocompletar el resto
+  const handleMixedEfectivoChange = (val: string) => {
+    const numEfectivo = Math.max(0, Number(val) || 0)
+    const autoRest = Math.max(0, total - numEfectivo)
+    setMixedPayments({
+      efectivo: val,
+      otroMedio: val === "" ? "" : String(autoRest),
+    })
+  }
 
   // Función para escanear / agregar un producto al carrito
   const handleAddProduct = (product: SaleCatalogProduct) => {
@@ -208,7 +217,7 @@ export function RegisterSaleForm({
       addToast(
         "error",
         "Producto sin stock disponible",
-        `${product.name} (${product.code}) tiene 0 unidades en stock y no puede agregarse.`,
+        `${product.name} (${product.id}) tiene 0 unidades en stock y no puede agregarse a la venta.`,
       )
       barcodeInputRef.current?.focus()
       return
@@ -254,15 +263,15 @@ export function RegisterSaleForm({
     const match = CATALOG_PRODUCTS.find(
       (p) =>
         p.barcode.toLowerCase() === query ||
-        p.code.toLowerCase() === query ||
+        p.id.toLowerCase() === query ||
         p.name.toLowerCase().includes(query),
     )
 
     if (!match) {
       addToast(
         "error",
-        "Código no encontrado",
-        `No se encontró ningún artículo con el código o nombre "${barcodeQuery}".`,
+        "Código de barras no encontrado",
+        `No se encontró ningún producto con el código o descripción "${barcodeQuery}".`,
       )
       return
     }
@@ -306,7 +315,7 @@ export function RegisterSaleForm({
     setBarcodeQuery("")
     setDiscountValue("")
     setPaymentMethod("efectivo")
-    setMixedPayments({ efectivo: "", tarjeta: "", transferencia: "" })
+    setMixedPayments({ efectivo: "", otroMedio: "" })
     setShowCancelConfirm(false)
     setTimeout(() => barcodeInputRef.current?.focus(), 50)
   }
@@ -316,7 +325,7 @@ export function RegisterSaleForm({
       addToast(
         "error",
         "Venta vacía",
-        "Escaneá o seleccioná al menos un producto antes de confirmar la operación.",
+        "Escaneá al menos un producto antes de confirmar la venta.",
       )
       barcodeInputRef.current?.focus()
       return
@@ -328,7 +337,7 @@ export function RegisterSaleForm({
           "error",
           "Pago mixto incompleto",
           mixedRemaining > 0
-            ? `Faltan cubrir $ ${mixedRemaining.toLocaleString("es-AR")} para alcanzar el total de la venta.`
+            ? `Faltan cubrir $ ${mixedRemaining.toLocaleString("es-AR")} para completar el total a cobrar.`
             : `El monto ingresado supera el total por $ ${Math.abs(mixedRemaining).toLocaleString("es-AR")}.`,
         )
         return
@@ -338,53 +347,46 @@ export function RegisterSaleForm({
     const activeBranchName =
       branches.find((b) => b.id === branchId)?.name ||
       user?.branchName ||
-      "Sucursal Central"
+      "Casa Central"
 
     const paymentLabels: Record<string, string> = {
       efectivo: "Efectivo",
       tarjeta: "Tarjeta",
-      transferencia: "Transferencia / Mercado Pago",
-      mixto: "Pago Mixto",
+      transferencia: "Transferencia",
+      mixto: `Mixto (Efectivo: $${mixedEfectivo.toLocaleString("es-AR")} + ${mixedSecondaryMethod}: $${mixedOtro.toLocaleString("es-AR")})`,
     }
 
-    const record: CompletedSaleRecord = {
-      id: `V-${Math.floor(10000 + Math.random() * 90000)}`,
-      date: currentDateTime.toLocaleString("es-AR", {
-        dateStyle: "short",
-        timeStyle: "short",
+    const record: SaleRecord = {
+      id: `VTA-${Math.floor(10000 + Math.random() * 90000)}`,
+      date: currentDateTime.toLocaleDateString("es-AR", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
       }),
-      seller: user?.name || "Administrador Principal",
+      time: currentDateTime.toLocaleTimeString("es-AR", {
+        hour: "2-digit",
+        minute: "2-digit",
+      }),
+      seller: user?.name || "Administrador",
       branch: activeBranchName,
-      itemsCount: cart.reduce((acc, item) => acc + item.quantity, 0),
+      items: [...cart],
       subtotal,
       discountAmount,
       total,
-      paymentMethod: paymentLabels[paymentMethod],
-      paymentBreakdown:
-        paymentMethod === "mixto"
-          ? {
-              efectivo: mixedEfectivo,
-              tarjeta: mixedTarjeta,
-              transferencia: mixedTransferencia,
-            }
-          : undefined,
+      paymentSummary: paymentLabels[paymentMethod],
     }
 
     addToast(
       "success",
-      "¡Venta registrada con éxito!",
-      `Comprobante ${record.id} por $ ${total.toLocaleString("es-AR")} procesado correctamente.`,
+      "¡Venta confirmada con éxito!",
+      `Comprobante ${record.id} por $ ${total.toLocaleString("es-AR")} registrado correctamente.`,
     )
 
-    onSaleSuccess?.(record)
+    onSaleRegistered?.(record)
     resetForm()
   }
 
   const handleRequestCancel = () => {
-    if (cart.length === 0 && !discountValue) {
-      onCloseModal?.()
-      return
-    }
     setShowCancelConfirm(true)
   }
 
@@ -433,7 +435,7 @@ export function RegisterSaleForm({
         </div>
       )}
 
-      {/* Barra superior de metadatos de la operación */}
+      {/* Barra superior de datos automáticos: Vendedor actual, Fecha y Hora */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <div className="flex items-center gap-3 bg-white px-4 py-3 rounded-2xl border border-slate-200/80 shadow-2xs">
           <div className="p-2 rounded-xl bg-blue-50 text-[#00559D]">
@@ -441,7 +443,7 @@ export function RegisterSaleForm({
           </div>
           <div className="min-w-0">
             <span className="block text-2xs uppercase tracking-wider font-semibold text-slate-400">
-              Vendedor a cargo
+              Vendedor Actual
             </span>
             <span className="block text-xs font-bold text-slate-900 truncate">
               {user?.name || "Administrador Principal"}
@@ -455,7 +457,7 @@ export function RegisterSaleForm({
           </div>
           <div className="min-w-0">
             <span className="block text-2xs uppercase tracking-wider font-semibold text-slate-400">
-              Fecha de Operación
+              Fecha Automática
             </span>
             <span className="block text-xs font-bold text-slate-900">
               {currentDateTime.toLocaleDateString("es-AR", {
@@ -488,14 +490,17 @@ export function RegisterSaleForm({
 
       {/* Cuerpo en 2 columnas: Escáner + Grilla (Izquierda) y Cobro + Descuentos (Derecha) */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
-        {/* Columna Izquierda: Escáner de Código de Barras y Grilla de Productos */}
+        {/* Columna Izquierda: Escáner de Código de Barras y Grilla de Venta */}
         <div className="lg:col-span-7 xl:col-span-8 space-y-5">
           <Card className="p-4 sm:p-5">
             <form onSubmit={handleBarcodeSubmit} className="space-y-3">
               <div className="flex items-center justify-between">
-                <Label htmlFor="barcode-scanner" className="mb-0 flex items-center gap-1.5 text-slate-700">
+                <Label
+                  htmlFor="barcode-scanner"
+                  className="mb-0 flex items-center gap-1.5 text-slate-700"
+                >
                   <Barcode className="w-4 h-4 text-[#00559D]" />
-                  <span>Escanear Código de Barras o SKU</span>
+                  <span>Ingreso por Código de Barras</span>
                 </Label>
                 <span className="text-2xs font-medium text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200/60">
                   Auto-Focus Activo
@@ -523,10 +528,10 @@ export function RegisterSaleForm({
                 </Button>
               </div>
 
-              {/* Accesos rápidos de escaneo para demostración (incluye stock normal, crítico y sin stock) */}
+              {/* Simulador rápido de códigos de barra para probar stock normal, crítico y sin stock */}
               <div className="pt-1">
                 <p className="text-2xs text-slate-400 font-medium mb-2">
-                  Simulador rápido de lector de código de barras (clic para escanear):
+                  Simulador rápido de escaneo (clic para escanear producto):
                 </p>
                 <div className="flex flex-wrap gap-1.5">
                   {CATALOG_PRODUCTS.map((prod) => {
@@ -545,8 +550,12 @@ export function RegisterSaleForm({
                               : "bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100"
                         }`}
                       >
-                        <span className="font-mono font-bold">{prod.barcode}</span>
-                        <span className="truncate max-w-[130px]">{prod.name}</span>
+                        <span className="font-mono font-bold">
+                          {prod.barcode}
+                        </span>
+                        <span className="truncate max-w-[130px]">
+                          {prod.name}
+                        </span>
                         <span
                           className={`px-1.5 py-0.2 rounded text-3xs font-bold ${
                             isOut
@@ -556,7 +565,7 @@ export function RegisterSaleForm({
                                 : "bg-slate-200/80 text-slate-700"
                           }`}
                         >
-                          {isOut ? "0 un." : `${prod.stock} un.`}
+                          {isOut ? "SIN STOCK" : `${prod.stock} un.`}
                         </span>
                       </button>
                     )
@@ -566,30 +575,31 @@ export function RegisterSaleForm({
             </form>
           </Card>
 
-          {/* Grilla de productos de la venta actual */}
+          {/* Grilla de venta: Producto, Cantidad (+ y - in-line), Precio Unitario y Subtotal */}
           <Card className="overflow-hidden flex flex-col">
             <div className="px-5 py-3.5 border-b border-slate-100 flex items-center justify-between bg-slate-50/60">
               <div className="flex items-center gap-2">
                 <ShoppingBag className="w-4 h-4 text-[#00559D]" />
                 <h3 className="text-sm font-bold text-slate-900 font-heading">
-                  Detalle de Productos Escaneados
+                  Grilla de Venta Actual
                 </h3>
               </div>
               <Badge variant="blue">
-                {cart.reduce((acc, i) => acc + i.quantity, 0)} artículos
+                {cart.reduce((acc, i) => acc + i.quantity, 0)} unidades
               </Badge>
             </div>
 
             {cart.length === 0 ? (
-              <div className="py-14 px-4 text-center flex flex-col items-center justify-center">
+              <div className="py-12 px-4 text-center flex flex-col items-center justify-center">
                 <div className="w-12 h-12 rounded-2xl bg-slate-100 flex items-center justify-center text-slate-400 mb-3">
                   <Barcode className="w-6 h-6" />
                 </div>
                 <p className="text-sm font-semibold text-slate-700">
-                  No hay productos cargados en la venta
+                  La grilla de venta está vacía
                 </p>
                 <p className="text-xs text-slate-400 mt-1 max-w-xs">
-                  Escaneá un código de barras arriba o seleccioná un artículo de acceso rápido para comenzar.
+                  Escaneá un código de barras arriba para ingresar el producto
+                  directamente a la lista.
                 </p>
               </div>
             ) : (
@@ -604,7 +614,7 @@ export function RegisterSaleForm({
                         Cantidad
                       </th>
                       <th className="px-4 py-3 text-right text-2xs font-bold text-slate-500 uppercase tracking-wider">
-                        Precio Unit.
+                        Precio Unitario
                       </th>
                       <th className="px-4 py-3 text-right text-2xs font-bold text-slate-500 uppercase tracking-wider">
                         Subtotal
@@ -618,7 +628,10 @@ export function RegisterSaleForm({
                     {cart.map((item) => {
                       const isLow = item.stock <= item.minStock
                       return (
-                        <tr key={item.id} className="hover:bg-slate-50/70 transition-colors">
+                        <tr
+                          key={item.id}
+                          className="hover:bg-slate-50/70 transition-colors"
+                        >
                           <td className="px-4 py-3.5">
                             <div className="flex flex-col">
                               <span className="text-xs sm:text-sm font-semibold text-slate-900">
@@ -626,11 +639,11 @@ export function RegisterSaleForm({
                               </span>
                               <div className="flex items-center gap-2 mt-0.5">
                                 <span className="text-2xs font-mono text-slate-400">
-                                  {item.code} • {item.barcode}
+                                  {item.id} • Cód: {item.barcode}
                                 </span>
                                 {isLow && (
                                   <span className="text-3xs font-semibold px-1.5 py-0.2 rounded bg-amber-100 text-amber-800">
-                                    Stock crítico ({item.stock} disp.)
+                                    Quedan {item.stock} un.
                                   </span>
                                 )}
                               </div>
@@ -667,7 +680,10 @@ export function RegisterSaleForm({
                           </td>
 
                           <td className="px-4 py-3.5 whitespace-nowrap text-right text-xs sm:text-sm font-bold text-slate-900 font-mono">
-                            $ {(item.price * item.quantity).toLocaleString("es-AR")}
+                            ${" "}
+                            {(item.price * item.quantity).toLocaleString(
+                              "es-AR",
+                            )}
                           </td>
 
                           <td className="px-3 py-3.5 whitespace-nowrap text-center">
@@ -690,15 +706,15 @@ export function RegisterSaleForm({
           </Card>
         </div>
 
-        {/* Columna Derecha: Descuentos, Métodos de Pago y Total a Cobrar */}
+        {/* Columna Derecha: Pagos, Descuentos y Total a Cobrar */}
         <div className="lg:col-span-5 xl:col-span-4 space-y-5">
           <Card className="p-5 space-y-5">
-            {/* Sección de Descuento Manual / Promocional */}
+            {/* Descuentos (monto fijo o %) */}
             <div>
               <Label className="flex items-center justify-between">
-                <span>Descuento Manual / Promocional</span>
-                <span className="text-2xs font-normal text-slate-400 lowercase">
-                  opcional
+                <span>Aplicar Descuento</span>
+                <span className="text-2xs font-normal text-slate-400">
+                  Monto fijo ($) o Porcentaje (%)
                 </span>
               </Label>
               <div className="flex gap-2 mt-1.5">
@@ -725,7 +741,7 @@ export function RegisterSaleForm({
                     }`}
                   >
                     <DollarSign className="w-3.5 h-3.5" />
-                    <span>Monto</span>
+                    <span>Fijo</span>
                   </button>
                 </div>
 
@@ -743,7 +759,7 @@ export function RegisterSaleForm({
               </div>
             </div>
 
-            {/* Selector de Método de Pago */}
+            {/* Selector de Método de Pago: Efectivo, Tarjeta, Transferencia y Pago Mixto */}
             <div className="pt-4 border-t border-slate-100">
               <Label>Método de Pago</Label>
               <div className="grid grid-cols-2 gap-2 mt-1.5">
@@ -783,7 +799,7 @@ export function RegisterSaleForm({
                   }`}
                 >
                   <Smartphone className="w-4 h-4 shrink-0" />
-                  <span className="truncate">Transf. / MP</span>
+                  <span className="truncate">Transferencia</span>
                 </button>
 
                 <button
@@ -801,86 +817,76 @@ export function RegisterSaleForm({
               </div>
             </div>
 
-            {/* Inputs dinámicos para Pago Mixto / Dividido */}
+            {/* Inputs dinámicos para Pago Mixto: Monto en Efectivo + Monto con Otro Medio */}
             {paymentMethod === "mixto" && (
               <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-3 animate-fadeIn">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-bold text-slate-800">
-                    Distribución de Pago Mixto
+                    Desglose de Pago Mixto
                   </span>
                   <button
                     type="button"
                     onClick={() =>
                       setMixedPayments({
                         efectivo: String(Math.floor(total / 2)),
-                        tarjeta: String(total - Math.floor(total / 2)),
-                        transferencia: "0",
+                        otroMedio: String(total - Math.floor(total / 2)),
                       })
                     }
                     className="text-2xs font-semibold text-[#00559D] hover:underline cursor-pointer"
                   >
-                    Dividir 50/50
+                    Mitad y Mitad
                   </button>
                 </div>
 
-                <div className="space-y-2.5">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs text-slate-600 w-28 shrink-0 flex items-center gap-1.5">
-                      <Banknote className="w-3.5 h-3.5 text-slate-400" />
-                      Efectivo:
-                    </span>
+                <div className="space-y-3">
+                  <div>
+                    <Label className="text-2xs text-slate-600 mb-1">
+                      Monto abonado en Efectivo ($)
+                    </Label>
                     <Input
                       type="number"
                       min="0"
-                      placeholder="$ 0"
+                      placeholder="Ej: 15000"
                       value={mixedPayments.efectivo}
                       onChange={(e) =>
-                        setMixedPayments((prev) => ({
-                          ...prev,
-                          efectivo: e.target.value,
-                        }))
+                        handleMixedEfectivoChange(e.target.value)
                       }
-                      className="py-1.5 text-xs font-mono"
+                      className="py-2 text-xs font-mono bg-white"
                     />
                   </div>
 
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs text-slate-600 w-28 shrink-0 flex items-center gap-1.5">
-                      <CreditCard className="w-3.5 h-3.5 text-slate-400" />
-                      Tarjeta:
-                    </span>
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <Label className="text-2xs text-slate-600 mb-0">
+                        Monto con otro medio ($)
+                      </Label>
+                      <select
+                        value={mixedSecondaryMethod}
+                        onChange={(e) =>
+                          setMixedSecondaryMethod(
+                            e.target.value as "Transferencia" | "Tarjeta",
+                          )
+                        }
+                        className="text-2xs font-bold text-[#00559D] bg-transparent border-none focus:outline-none cursor-pointer"
+                      >
+                        <option value="Transferencia">
+                          Con Transferencia
+                        </option>
+                        <option value="Tarjeta">Con Tarjeta</option>
+                      </select>
+                    </div>
                     <Input
                       type="number"
                       min="0"
-                      placeholder="$ 0"
-                      value={mixedPayments.tarjeta}
+                      placeholder="Resto a cubrir..."
+                      value={mixedPayments.otroMedio}
                       onChange={(e) =>
                         setMixedPayments((prev) => ({
                           ...prev,
-                          tarjeta: e.target.value,
+                          otroMedio: e.target.value,
                         }))
                       }
-                      className="py-1.5 text-xs font-mono"
-                    />
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs text-slate-600 w-28 shrink-0 flex items-center gap-1.5">
-                      <Smartphone className="w-3.5 h-3.5 text-slate-400" />
-                      Transf. / MP:
-                    </span>
-                    <Input
-                      type="number"
-                      min="0"
-                      placeholder="$ 0"
-                      value={mixedPayments.transferencia}
-                      onChange={(e) =>
-                        setMixedPayments((prev) => ({
-                          ...prev,
-                          transferencia: e.target.value,
-                        }))
-                      }
-                      className="py-1.5 text-xs font-mono"
+                      className="py-2 text-xs font-mono bg-white"
                     />
                   </div>
                 </div>
@@ -909,7 +915,9 @@ export function RegisterSaleForm({
             {/* Resumen de Totales */}
             <div className="pt-4 border-t border-slate-200/80 space-y-2.5">
               <div className="flex justify-between text-xs text-slate-500">
-                <span>Subtotal ({cart.reduce((a, b) => a + b.quantity, 0)} ítems)</span>
+                <span>
+                  Subtotal ({cart.reduce((a, b) => a + b.quantity, 0)} ítems)
+                </span>
                 <span className="font-mono font-medium text-slate-700">
                   $ {subtotal.toLocaleString("es-AR")}
                 </span>
@@ -919,7 +927,9 @@ export function RegisterSaleForm({
                 <div className="flex justify-between text-xs text-emerald-600 font-semibold">
                   <span>
                     Descuento aplicado{" "}
-                    {discountType === "percent" ? `(${numericDiscountInput}%)` : ""}
+                    {discountType === "percent"
+                      ? `(${numericDiscountInput}%)`
+                      : ""}
                   </span>
                   <span className="font-mono">
                     - $ {discountAmount.toLocaleString("es-AR")}
@@ -937,7 +947,7 @@ export function RegisterSaleForm({
               </div>
             </div>
 
-            {/* Botones de Acción Principal y Reversión/Cancelación */}
+            {/* Botones de Acción Principal y Cancelación */}
             <div className="pt-2 space-y-2.5">
               <Button
                 type="button"
@@ -945,7 +955,7 @@ export function RegisterSaleForm({
                 icon={Check}
                 className="w-full py-3 text-sm font-bold shadow-md"
               >
-                Confirmar y Registrar Venta
+                Confirmar Venta
               </Button>
 
               <Button
@@ -954,17 +964,17 @@ export function RegisterSaleForm({
                 onClick={handleRequestCancel}
                 className="w-full py-2.5 text-xs font-semibold text-rose-600 border-rose-200 hover:bg-rose-50 hover:border-rose-300"
               >
-                Cancelar Venta en Curso
+                Cancelar Venta
               </Button>
             </div>
           </Card>
         </div>
       </div>
 
-      {/* Modal previo de confirmación para cancelar la venta */}
+      {/* Modal previo de confirmación: "¿Estás seguro de cancelar esta operación?" */}
       {showCancelConfirm && (
         <Modal
-          title="Confirmar cancelación de venta"
+          title="Cancelar Operación"
           onClose={() => setShowCancelConfirm(false)}
         >
           <div className="space-y-4">
@@ -972,12 +982,11 @@ export function RegisterSaleForm({
               <AlertTriangle className="w-5 h-5 text-rose-600 shrink-0 mt-0.5" />
               <div className="text-xs leading-relaxed">
                 <p className="font-bold text-sm mb-1">
-                  ¿Estás seguro de cancelar esta venta?
+                  ¿Estás seguro de cancelar esta operación?
                 </p>
                 <p>
-                  Se descartarán los{" "}
-                  <strong>{cart.reduce((a, b) => a + b.quantity, 0)} productos</strong>{" "}
-                  cargados y los descuentos configurados en la operación actual.
+                  Se descartarán todos los productos cargados y los pagos o
+                  descuentos configurados en la venta actual.
                 </p>
               </div>
             </div>
@@ -988,7 +997,7 @@ export function RegisterSaleForm({
                 variant="outline"
                 onClick={() => setShowCancelConfirm(false)}
               >
-                Volver a la venta
+                Continuar con la venta
               </Button>
               <Button
                 type="button"
@@ -997,15 +1006,15 @@ export function RegisterSaleForm({
                   resetForm()
                   addToast(
                     "warning",
-                    "Venta cancelada",
-                    "Se limpió el formulario y la operación en curso fue revertida.",
+                    "Operación cancelada",
+                    "Se limpió el formulario y la venta en curso fue descartada.",
                   )
                   if (isModal) {
                     onCloseModal?.()
                   }
                 }}
               >
-                Sí, cancelar venta
+                Sí, cancelar operación
               </Button>
             </div>
           </div>
@@ -1016,15 +1025,18 @@ export function RegisterSaleForm({
 }
 
 export default function RegisterSaleModal({
+  isOpen,
   open,
   onClose,
-  onSaleSuccess,
+  onSaleRegistered,
 }: {
-  open: boolean
+  isOpen?: boolean
+  open?: boolean
   onClose: () => void
-  onSaleSuccess?: (sale: CompletedSaleRecord) => void
+  onSaleRegistered?: (sale: SaleRecord) => void
 }) {
-  if (!open) return null
+  const visible = isOpen ?? open ?? false
+  if (!visible) return null
 
   return (
     <div
@@ -1045,10 +1057,10 @@ export default function RegisterSaleModal({
                 id="register-sale-modal-title"
                 className="text-base sm:text-lg font-bold font-heading"
               >
-                Registrar Nueva Venta
+                Registrar Venta
               </h2>
               <p className="text-2xs text-blue-200/80">
-                Terminal Punto de Venta (POS) • Escaneo rápido de código de barras
+                Escaneo automático de código de barras • Pagos simples y mixtos
               </p>
             </div>
           </div>
@@ -1067,8 +1079,8 @@ export default function RegisterSaleModal({
           <RegisterSaleForm
             isModal
             onCloseModal={onClose}
-            onSaleSuccess={(sale) => {
-              onSaleSuccess?.(sale)
+            onSaleRegistered={(sale) => {
+              onSaleRegistered?.(sale)
             }}
           />
         </div>
