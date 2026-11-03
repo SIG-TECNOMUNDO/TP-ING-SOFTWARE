@@ -750,9 +750,11 @@ export default function Inventory() {
               />
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 items-end">
               <div>
-                <Label htmlFor="prod-price">Precio de Venta ($) *</Label>
+                <Label htmlFor="prod-price" className="whitespace-nowrap">
+                  Precio de Venta ($) *
+                </Label>
                 <Input
                   id="prod-price"
                   type="number"
@@ -771,7 +773,7 @@ export default function Inventory() {
               </div>
 
               <div>
-                <Label htmlFor="prod-min-stock">
+                <Label htmlFor="prod-min-stock" className="whitespace-nowrap">
                   Stock Mínimo para Alertas
                 </Label>
                 <Input
@@ -795,10 +797,13 @@ export default function Inventory() {
               <span className="block text-2xs uppercase tracking-wider font-bold text-slate-500">
                 Disponibilidad por Sucursal
               </span>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 items-end">
                 <div>
-                  <Label htmlFor="prod-stock-yofre">
-                    Stock Sucursal Yofre (un.)
+                  <Label
+                    htmlFor="prod-stock-yofre"
+                    className="whitespace-nowrap truncate"
+                  >
+                    Stock Yofre (un.)
                   </Label>
                   <Input
                     id="prod-stock-yofre"
@@ -817,8 +822,11 @@ export default function Inventory() {
                 </div>
 
                 <div>
-                  <Label htmlFor="prod-stock-alta">
-                    Stock Sucursal Alta Cba (un.)
+                  <Label
+                    htmlFor="prod-stock-alta"
+                    className="whitespace-nowrap truncate"
+                  >
+                    Stock Alta Cba (un.)
                   </Label>
                   <Input
                     id="prod-stock-alta"

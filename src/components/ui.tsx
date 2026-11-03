@@ -86,7 +86,7 @@ export function Badge({
   className = "",
 }: {
   children: React.ReactNode
-  variant?: "gray" | "green" | "blue" | "yellow" | "red" | "orange"
+  variant?: "gray" | "green" | "blue" | "yellow" | "red" | "orange" | "purple"
   className?: string
 }) {
   const variants = {
@@ -96,6 +96,7 @@ export function Badge({
     yellow: "bg-amber-500/12 text-amber-800 border border-amber-500/20",
     red: "bg-rose-500/12 text-rose-700 border border-rose-500/20",
     orange: "bg-orange-500/12 text-orange-700 border border-orange-500/20",
+    purple: "bg-purple-500/12 text-purple-700 border border-purple-500/20",
   }
   return (
     <span

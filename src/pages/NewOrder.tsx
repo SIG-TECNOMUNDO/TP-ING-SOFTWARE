@@ -2,14 +2,13 @@ import React, { useState } from "react"
 import { Card, Button, Input, Label, Select, Badge } from "../components/ui"
 import {
   ArrowLeft,
-  Save,
   Printer,
   User,
   Smartphone,
   Stethoscope,
-  Calculator,
   CheckCircle2,
-  ShieldCheck,
+  ClipboardCheck,
+  Check,
 } from "lucide-react"
 import { Link, useNavigate, useLocation } from "react-router-dom"
 
@@ -42,21 +41,11 @@ export default function NewOrder() {
   // 3. Diagnóstico de Falla
   const [reportedIssue, setReportedIssue] = useState("")
   const [physicalCondition, setPhysicalCondition] = useState("")
-  const [initialDiagnosis, setInitialDiagnosis] = useState("")
+
+  // 4. Condiciones de Recepción y Seña
   const [branch, setBranch] = useState("yofre")
   const [priority, setPriority] = useState("Normal")
-
-  // 4. Costos y Presupuesto
-  const [partsCost, setPartsCost] = useState<string>("")
-  const [laborCost, setLaborCost] = useState<string>("")
   const [advancePayment, setAdvancePayment] = useState<string>("")
-  const [budgetStatus, setBudgetStatus] = useState("Pendiente de Aprobación")
-
-  const numParts = Math.max(0, Number(partsCost) || 0)
-  const numLabor = Math.max(0, Number(laborCost) || 0)
-  const numAdvance = Math.max(0, Number(advancePayment) || 0)
-  const estimatedTotal = numParts + numLabor
-  const remainingBalance = Math.max(0, estimatedTotal - numAdvance)
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault()
@@ -90,7 +79,7 @@ export default function NewOrder() {
               )}
             </div>
             <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
-              Completá los 4 apartados de recepción técnica y presupuesto inicial
+              Recepción rápida de equipos en mostrador
             </p>
           </div>
         </div>
@@ -100,14 +89,14 @@ export default function NewOrder() {
         <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-900 flex items-center gap-3 shadow-sm animate-fadeIn">
           <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
           <p className="text-xs sm:text-sm font-bold">
-            Orden guardada exitosamente. Redirigiendo al listado de taller...
+            Orden generada exitosamente. Redirigiendo al listado de taller...
           </p>
         </div>
       )}
 
       <form onSubmit={handleSave} className="space-y-6">
-        {/* Grid en 2 columnas para separar visualmente las 4 tarjetas */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Grid simétrico en 2 columnas para las 4 tarjetas */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-stretch">
           {/* APARTADO 1: Datos del Cliente */}
           <Card className="p-5 sm:p-6 flex flex-col justify-between">
             <div className="space-y-4">
@@ -128,7 +117,7 @@ export default function NewOrder() {
                 <Badge variant="blue">Paso 1</Badge>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-end">
                 <div className="sm:col-span-2">
                   <Label>Nombre y Apellido *</Label>
                   <Input
@@ -190,7 +179,7 @@ export default function NewOrder() {
                 <Badge variant="orange">Paso 2</Badge>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-end">
                 <div>
                   <Label>Tipo de Equipo *</Label>
                   <Select
@@ -253,7 +242,7 @@ export default function NewOrder() {
             </div>
           </Card>
 
-          {/* APARTADO 3: Diagnóstico de Falla */}
+          {/* APARTADO 3: Diagnóstico de Falla (con píldora violeta clara "Paso 3") */}
           <Card className="p-5 sm:p-6 flex flex-col justify-between">
             <div className="space-y-4">
               <div className="flex items-center justify-between pb-3.5 border-b border-slate-100">
@@ -266,19 +255,19 @@ export default function NewOrder() {
                       3. Diagnóstico de Falla
                     </h2>
                     <p className="text-2xs text-slate-400">
-                      Problema reportado, estado estético y evaluación
+                      Problema reportado y estado estético al recibir
                     </p>
                   </div>
                 </div>
                 <Badge variant="purple">Paso 3</Badge>
               </div>
 
-              <div className="space-y-3.5">
+              <div className="space-y-4">
                 <div>
                   <Label>Falla Reportada por el Cliente *</Label>
                   <textarea
                     required
-                    rows={2}
+                    rows={3}
                     value={reportedIssue}
                     onChange={(e) => setReportedIssue(e.target.value)}
                     className="block w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 placeholder-slate-400 shadow-2xs focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
@@ -287,168 +276,113 @@ export default function NewOrder() {
                 </div>
 
                 <div>
-                  <Label>Diagnóstico Preliminar / Observaciones Físicas</Label>
+                  <Label>Observaciones Físicas al Ingresar</Label>
                   <textarea
-                    rows={2}
+                    rows={3}
                     value={physicalCondition}
                     onChange={(e) => setPhysicalCondition(e.target.value)}
                     className="block w-full rounded-xl border border-slate-200 bg-slate-50/70 px-3.5 py-2.5 text-sm text-slate-900 placeholder-slate-400 shadow-2xs focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
-                    placeholder="Ej. Tapa trasera astillada, marcos con desgaste, equipo no enciende en mostrador..."
+                    placeholder="Ej. Tapa trasera astillada, marcos con desgaste, equipo ingresa apagado..."
                   />
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
-                  <div>
-                    <Label>Sucursal Receptora *</Label>
-                    <Select
-                      required
-                      value={branch}
-                      onChange={(e) => setBranch(e.target.value)}
-                    >
-                      <option value="yofre">Yofre Norte</option>
-                      <option value="alta">Alta Córdoba</option>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label>Nivel de Prioridad</Label>
-                    <Select
-                      value={priority}
-                      onChange={(e) => setPriority(e.target.value)}
-                    >
-                      <option value="Normal">Normal (48-72 hs)</option>
-                      <option value="Alta">Alta / Express (24 hs)</option>
-                      <option value="Garantía">Reingreso por Garantía</option>
-                    </Select>
-                  </div>
                 </div>
               </div>
             </div>
           </Card>
 
-          {/* APARTADO 4: Costos y Presupuesto */}
+          {/* APARTADO 4: Condiciones de Recepción y Seña */}
           <Card className="p-5 sm:p-6 flex flex-col justify-between">
             <div className="space-y-4">
               <div className="flex items-center justify-between pb-3.5 border-b border-slate-100">
                 <div className="flex items-center gap-3">
                   <div className="p-2.5 rounded-2xl bg-emerald-50 text-emerald-600 border border-emerald-200/50">
-                    <Calculator className="w-5 h-5" />
+                    <ClipboardCheck className="w-5 h-5" />
                   </div>
                   <div>
                     <h2 className="text-base font-bold text-slate-900 font-heading">
-                      4. Costos y Presupuesto
+                      4. Condiciones de Recepción y Seña
                     </h2>
                     <p className="text-2xs text-slate-400">
-                      Desglose de repuestos, mano de obra y seña
+                      Sucursal, prioridad de revisión y adelanto opcional
                     </p>
                   </div>
                 </div>
                 <Badge variant="green">Paso 4</Badge>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-end">
                 <div>
-                  <Label>Costo de Repuestos ($)</Label>
-                  <Input
-                    type="number"
-                    min="0"
-                    value={partsCost}
-                    onChange={(e) => setPartsCost(e.target.value)}
-                    placeholder="Ej. 85000"
-                    className="font-mono"
-                  />
+                  <Label>Sucursal Receptora *</Label>
+                  <Select
+                    required
+                    value={branch}
+                    onChange={(e) => setBranch(e.target.value)}
+                  >
+                    <option value="yofre">Yofre Norte</option>
+                    <option value="alta">Alta Córdoba</option>
+                  </Select>
                 </div>
+
                 <div>
-                  <Label>Mano de Obra ($)</Label>
-                  <Input
-                    type="number"
-                    min="0"
-                    value={laborCost}
-                    onChange={(e) => setLaborCost(e.target.value)}
-                    placeholder="Ej. 35000"
-                    className="font-mono"
-                  />
+                  <Label>Nivel de Prioridad</Label>
+                  <Select
+                    value={priority}
+                    onChange={(e) => setPriority(e.target.value)}
+                  >
+                    <option value="Normal">Normal (48-72 hs)</option>
+                    <option value="Alta">Alta / Express (24 hs)</option>
+                    <option value="Garantía">Reingreso por Garantía</option>
+                  </Select>
                 </div>
-                <div>
-                  <Label>Seña / Adelanto Recibido ($)</Label>
+
+                <div className="sm:col-span-2">
+                  <Label>Seña / Adelanto Recibido ($) (Opcional)</Label>
                   <Input
                     type="number"
                     min="0"
                     value={advancePayment}
                     onChange={(e) => setAdvancePayment(e.target.value)}
-                    placeholder="Ej. 20000"
+                    placeholder="Ej. 15000 (Dejar en blanco si no abona seña)"
                     className="font-mono"
                   />
-                </div>
-                <div>
-                  <Label>Estado del Presupuesto</Label>
-                  <Select
-                    value={budgetStatus}
-                    onChange={(e) => setBudgetStatus(e.target.value)}
-                  >
-                    <option value="Pendiente de Aprobación">
-                      Pendiente de Aprobación
-                    </option>
-                    <option value="Aprobado en Mostrador">
-                      Aprobado en Mostrador
-                    </option>
-                    <option value="A Confirmar tras Diagnóstico">
-                      A Confirmar tras Diagnóstico
-                    </option>
-                  </Select>
+                  <p className="text-2xs text-slate-400 mt-1">
+                    Los costos de repuestos y mano de obra los completará el
+                    técnico luego de revisar el equipo.
+                  </p>
                 </div>
               </div>
+            </div>
 
-              {/* Resumen financiero de la orden */}
-              <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-2 mt-2">
-                <div className="flex justify-between text-xs text-slate-600">
-                  <span>Presupuesto Total Estimado:</span>
-                  <span className="font-mono font-bold text-slate-900">
-                    $ {estimatedTotal.toLocaleString("es-AR")}
-                  </span>
-                </div>
-                <div className="flex justify-between text-xs text-emerald-700">
-                  <span>Seña abonada al ingresar:</span>
-                  <span className="font-mono font-semibold">
-                    - $ {numAdvance.toLocaleString("es-AR")}
-                  </span>
-                </div>
-                <div className="flex justify-between items-baseline pt-2 border-t border-slate-200">
-                  <span className="text-xs font-bold uppercase text-slate-900">
-                    Saldo Pendiente al Retirar:
-                  </span>
-                  <span className="text-lg font-extrabold text-[#00559D] font-mono">
-                    $ {remainingBalance.toLocaleString("es-AR")}
-                  </span>
-                </div>
+            {/* Botón grande de "Confirmar y Generar Orden" + Acciones secundarias */}
+            <div className="pt-4 mt-4 border-t border-slate-100 space-y-2.5">
+              <Button
+                type="submit"
+                icon={Check}
+                className="w-full py-3 text-sm font-bold shadow-md"
+              >
+                Confirmar y Generar Orden
+              </Button>
+
+              <div className="grid grid-cols-2 gap-2.5">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => navigate("/servicio-tecnico")}
+                  className="w-full py-2 text-xs"
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  icon={Printer}
+                  className="w-full py-2 text-xs"
+                >
+                  Imprimir Recibo
+                </Button>
               </div>
             </div>
           </Card>
         </div>
-
-        {/* Barra inferior de acciones */}
-        <Card className="p-4 sm:px-6 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-2 text-xs text-slate-500">
-            <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
-            <span>
-              Se generará comprobante de recepción con código QR de seguimiento.
-            </span>
-          </div>
-          <div className="flex flex-wrap items-center justify-end gap-3 w-full sm:w-auto">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => navigate("/servicio-tecnico")}
-            >
-              Cancelar
-            </Button>
-            <Button type="button" variant="secondary" icon={Printer}>
-              Imprimir Comprobante
-            </Button>
-            <Button type="submit" icon={Save} className="px-6 font-bold">
-              Guardar Orden
-            </Button>
-          </div>
-        </Card>
       </form>
     </div>
   )

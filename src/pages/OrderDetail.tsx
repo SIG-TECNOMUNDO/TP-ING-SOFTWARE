@@ -32,7 +32,8 @@ export default function OrderDetail() {
   )
   const [partsCost, setPartsCost] = useState(125000)
   const [laborCost, setLaborCost] = useState(35000)
-  const [advancePaid] = useState(30000)
+  const [advancePaid, setAdvancePaid] = useState(30000)
+  const [budgetStatus, setBudgetStatus] = useState("Aprobado")
 
   const [orderData, setOrderData] = useState({
     clientName: "Martín Pérez",
@@ -336,11 +337,25 @@ export default function OrderDetail() {
                     4. Costos y Presupuesto
                   </h2>
                   <p className="text-2xs text-slate-400">
-                    Repuestos asignados, mano de obra y saldo pendiente de cobro
+                    Desglose técnico de repuestos, mano de obra y estado del presupuesto
                   </p>
                 </div>
               </div>
-              <Badge variant="green">Presupuesto Aprobado</Badge>
+              <Badge
+                variant={
+                  budgetStatus === "Aprobado"
+                    ? "green"
+                    : budgetStatus === "Rechazado"
+                      ? "red"
+                      : "yellow"
+                }
+              >
+                {budgetStatus === "Aprobado"
+                  ? "Presupuesto Aprobado"
+                  : budgetStatus === "Rechazado"
+                    ? "Presupuesto Rechazado"
+                    : "Pendiente de Aprobación"}
+              </Badge>
             </div>
 
             <div className="space-y-4">
@@ -364,28 +379,55 @@ export default function OrderDetail() {
                 </span>
               </div>
 
-              {/* Edición rápida de costos */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {/* Edición de costos y estado del presupuesto por el técnico */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-end">
                 <div>
                   <Label>Costo de Repuestos ($)</Label>
                   <Input
                     type="number"
+                    min="0"
                     value={partsCost}
                     onChange={(e) =>
                       setPartsCost(Math.max(0, Number(e.target.value) || 0))
                     }
-                    className="font-mono"
+                    className="font-mono font-bold"
                   />
                 </div>
                 <div>
                   <Label>Mano de Obra ($)</Label>
                   <Input
                     type="number"
+                    min="0"
                     value={laborCost}
                     onChange={(e) =>
                       setLaborCost(Math.max(0, Number(e.target.value) || 0))
                     }
-                    className="font-mono"
+                    className="font-mono font-bold"
+                  />
+                </div>
+                <div>
+                  <Label>Estado del Presupuesto</Label>
+                  <Select
+                    value={budgetStatus}
+                    onChange={(e) => setBudgetStatus(e.target.value)}
+                  >
+                    <option value="Pendiente de Aprobación">
+                      Pendiente de Aprobación
+                    </option>
+                    <option value="Aprobado">Aprobado por el Cliente</option>
+                    <option value="Rechazado">Rechazado / Sin Cargo</option>
+                  </Select>
+                </div>
+                <div>
+                  <Label>Seña / Adelanto Recibido ($)</Label>
+                  <Input
+                    type="number"
+                    min="0"
+                    value={advancePaid}
+                    onChange={(e) =>
+                      setAdvancePaid(Math.max(0, Number(e.target.value) || 0))
+                    }
+                    className="font-mono font-bold text-emerald-700"
                   />
                 </div>
               </div>
@@ -412,6 +454,20 @@ export default function OrderDetail() {
                     $ {pendingBalance.toLocaleString("es-AR")}
                   </span>
                 </div>
+              </div>
+
+              <div className="flex justify-end pt-1">
+                <Button
+                  type="button"
+                  onClick={() =>
+                    showTemporarySuccess(
+                      "Diagnóstico, costos y estado del presupuesto guardados con éxito.",
+                    )
+                  }
+                  className="bg-[#0B2B4C] hover:bg-[#133A63] text-white font-bold"
+                >
+                  Guardar Diagnóstico y Presupuesto
+                </Button>
               </div>
             </div>
           </Card>
