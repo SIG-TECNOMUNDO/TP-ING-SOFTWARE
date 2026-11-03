@@ -10,7 +10,7 @@ export function Card({
 }) {
   return (
     <div
-      className={`bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 rounded-2xl shadow-sm border border-slate-200/80 dark:border-slate-800 transition-all ${className}`}
+      className={`bg-white text-slate-900 rounded-2xl shadow-sm border border-slate-200/80 transition-all ${className}`}
     >
       {children}
     </div>
@@ -31,15 +31,15 @@ export function Button({
     "inline-flex items-center justify-center px-4 py-2.5 rounded-xl font-medium text-sm transition-all duration-150 active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none cursor-pointer"
   const variants = {
     primary:
-      "bg-gradient-to-r from-[#1565A9] to-[#1E78C2] text-white hover:from-[#11528A] hover:to-[#1766A6] shadow-xs shadow-blue-900/15 focus:ring-[#1565A9]",
+      "bg-gradient-to-r from-[#00559D] to-[#1565A9] text-white hover:from-[#0B2B4C] hover:to-[#00559D] shadow-xs shadow-blue-900/15 focus:ring-[#00559D]",
     secondary:
-      "bg-gradient-to-r from-[#F28C28] to-[#F59E0B] text-white hover:from-[#D97706] hover:to-[#D97706] shadow-xs shadow-orange-900/15 focus:ring-[#F28C28]",
+      "bg-gradient-to-r from-[#F56C00] to-[#FF8524] text-white hover:from-[#D65E00] hover:to-[#F56C00] shadow-xs shadow-orange-900/15 focus:ring-[#F56C00]",
     outline:
-      "border border-slate-200/90 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700/80 hover:border-slate-300 dark:hover:border-slate-600 shadow-2xs focus:ring-[#1565A9]",
+      "border border-slate-200/90 bg-white text-slate-700 hover:bg-slate-50 hover:border-slate-300 shadow-2xs focus:ring-[#00559D]",
     danger:
       "bg-rose-600 text-white hover:bg-rose-700 shadow-xs shadow-rose-900/15 focus:ring-rose-500",
     ghost:
-      "bg-transparent text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white focus:ring-slate-400",
+      "bg-transparent text-slate-600 hover:bg-slate-100 hover:text-slate-900 focus:ring-slate-400",
   }
 
   return (
@@ -59,7 +59,7 @@ export function Input({
 }: React.InputHTMLAttributes<HTMLInputElement>) {
   return (
     <input
-      className={`block w-full rounded-xl border-slate-200 dark:border-slate-700/80 border bg-white dark:bg-slate-900/90 px-3.5 py-2.5 text-sm text-slate-800 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 shadow-2xs transition-colors focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 ${className}`}
+      className={`block w-full rounded-xl border-slate-200 border bg-white px-3.5 py-2.5 text-sm text-slate-800 placeholder-slate-400 shadow-2xs transition-colors focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 ${className}`}
       {...props}
     />
   )
@@ -72,7 +72,7 @@ export function Select({
 }: React.SelectHTMLAttributes<HTMLSelectElement>) {
   return (
     <select
-      className={`block w-full rounded-xl border-slate-200 dark:border-slate-700/80 border bg-white dark:bg-slate-900/90 px-3.5 py-2.5 text-sm text-slate-800 dark:text-slate-100 shadow-2xs transition-colors focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 cursor-pointer ${className}`}
+      className={`block w-full rounded-xl border-slate-200 border bg-white px-3.5 py-2.5 text-sm text-slate-800 shadow-2xs transition-colors focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 cursor-pointer ${className}`}
       {...props}
     >
       {children}
@@ -90,12 +90,12 @@ export function Badge({
   className?: string
 }) {
   const variants = {
-    gray: "bg-slate-500/10 dark:bg-slate-500/20 text-slate-700 dark:text-slate-300 border border-slate-500/20 dark:border-slate-500/30",
-    green: "bg-emerald-500/12 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20 dark:border-emerald-500/30",
-    blue: "bg-blue-500/12 dark:bg-blue-500/20 text-blue-700 dark:text-blue-400 border border-blue-500/20 dark:border-blue-500/30",
-    yellow: "bg-amber-500/12 dark:bg-amber-500/20 text-amber-800 dark:text-amber-300 border border-amber-500/20 dark:border-amber-500/30",
-    red: "bg-rose-500/12 dark:bg-rose-500/20 text-rose-700 dark:text-rose-400 border border-rose-500/20 dark:border-rose-500/30",
-    orange: "bg-orange-500/12 dark:bg-orange-500/20 text-orange-700 dark:text-orange-400 border border-orange-500/20 dark:border-orange-500/30",
+    gray: "bg-slate-500/10 text-slate-700 border border-slate-500/20",
+    green: "bg-emerald-500/12 text-emerald-700 border border-emerald-500/20",
+    blue: "bg-blue-500/12 text-blue-700 border border-blue-500/20",
+    yellow: "bg-amber-500/12 text-amber-800 border border-amber-500/20",
+    red: "bg-rose-500/12 text-rose-700 border border-rose-500/20",
+    orange: "bg-orange-500/12 text-orange-700 border border-orange-500/20",
   }
   return (
     <span
@@ -113,7 +113,7 @@ export function Label({
 }: React.LabelHTMLAttributes<HTMLLabelElement>) {
   return (
     <label
-      className={`block text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-400 mb-1.5 ${className}`}
+      className={`block text-xs font-semibold uppercase tracking-wider text-slate-600 mb-1.5 ${className}`}
       {...props}
     >
       {children}
