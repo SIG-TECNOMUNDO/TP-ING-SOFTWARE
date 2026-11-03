@@ -702,7 +702,7 @@ export default function CashFlow() {
         </div>
       </Card>
 
-      {/* Modal de Cierre de Caja Diario y Reporte (Intuitivo y Habilitado para Empleados) */}
+      {/* Modal de Cierre de Caja Diario Simplificado (3 Bloques Directos) */}
       {isClosureModalOpen && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-3 sm:p-6 overflow-y-auto animate-fadeIn"
@@ -710,7 +710,7 @@ export default function CashFlow() {
           aria-modal="true"
           aria-labelledby="cash-closure-title"
         >
-          <div className="bg-slate-100 text-slate-900 rounded-3xl shadow-2xl border border-slate-200 w-full max-w-3xl max-h-[92vh] flex flex-col overflow-hidden">
+          <div className="bg-white text-slate-900 rounded-3xl shadow-2xl border border-slate-200 w-full max-w-2xl max-h-[92vh] flex flex-col overflow-hidden">
             {/* Cabecera Oscura */}
             <div className="px-6 py-4 bg-[#0B2B4C] text-white flex items-center justify-between shrink-0">
               <div className="flex items-center gap-3">
@@ -722,7 +722,7 @@ export default function CashFlow() {
                     id="cash-closure-title"
                     className="text-base sm:text-lg font-bold font-heading"
                   >
-                    Cierre de Caja Diario y Arqueo de Turno
+                    Cierre de Caja Diario
                   </h2>
                   <p className="text-2xs text-blue-200/80">
                     Operador: {user?.name || "Empleado en Turno"} • Fecha:{" "}
@@ -744,96 +744,70 @@ export default function CashFlow() {
               onSubmit={handleConfirmClosure}
               className="p-5 sm:p-6 overflow-y-auto space-y-5 flex-1"
             >
-              {/* Paso 1: Monto Inicial y Totales Calculados por el Sistema */}
-              <Card className="p-4 sm:p-5 space-y-4">
-                <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-                  <h3 className="text-sm font-bold text-slate-900 font-heading">
-                    1. Resumen del Turno según Sistema
+              {/* Bloque 1: Lo que dice el Sistema */}
+              <div className="space-y-2.5">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <h3 className="text-xs sm:text-sm font-bold text-slate-800 uppercase tracking-wider font-heading">
+                    1. Lo que dice el Sistema
                   </h3>
-                  <Badge variant="blue">Cálculo Automático</Badge>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="initial-cash">
-                      Monto Inicial en Caja (Fondo de Cambio $)
-                    </Label>
-                    <Input
+                  <div className="flex items-center gap-1.5 text-xs text-slate-500">
+                    <span>Fondo inicial incluido: $</span>
+                    <input
                       id="initial-cash"
                       type="number"
                       min="0"
                       value={initialCashInput}
                       onChange={(e) => setInitialCashInput(e.target.value)}
-                      className="font-mono font-bold"
+                      className="w-24 rounded-lg border border-slate-200 bg-slate-50 px-2 py-0.5 text-xs font-mono font-bold text-slate-800 focus:border-primary focus:bg-white focus:outline-none"
+                      aria-label="Fondo inicial de caja"
                     />
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-2.5">
-                    <div className="p-3 rounded-xl bg-emerald-50/70 border border-emerald-200/70">
-                      <span className="block text-3xs uppercase font-bold text-emerald-700">
-                        Ingresos del Turno
-                      </span>
-                      <span className="text-xs sm:text-sm font-extrabold font-mono text-emerald-800">
-                        + {formatMoney(summary.totalIncome)}
-                      </span>
-                    </div>
-                    <div className="p-3 rounded-xl bg-rose-50/70 border border-rose-200/70">
-                      <span className="block text-3xs uppercase font-bold text-rose-700">
-                        Egresos del Turno
-                      </span>
-                      <span className="text-xs sm:text-sm font-extrabold font-mono text-rose-800">
-                        - {formatMoney(summary.totalExpenses)}
-                      </span>
-                    </div>
                   </div>
                 </div>
 
-                {/* Desglose esperado */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
-                  <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/70">
-                    <span className="block text-3xs uppercase font-bold text-slate-400">
-                      Efectivo Esperado en Cajón
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 bg-slate-50 p-3.5 rounded-2xl border border-slate-200/80">
+                  <div className="px-2 py-1">
+                    <span className="block text-2xs uppercase font-bold text-slate-500">
+                      Efectivo esperado en cajón
                     </span>
-                    <span className="text-sm font-extrabold font-mono text-slate-900">
+                    <span className="text-base sm:text-lg font-extrabold font-mono text-slate-900">
                       {formatMoney(expectedCashInDrawer)}
                     </span>
                   </div>
-                  <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/70">
-                    <span className="block text-3xs uppercase font-bold text-slate-400">
-                      Tarjetas / Transferencias
+
+                  <div className="px-2 py-1 sm:border-l sm:border-slate-200/80 sm:pl-4">
+                    <span className="block text-2xs uppercase font-bold text-slate-500">
+                      Total Digital (Tarjetas/Transf.)
                     </span>
-                    <span className="text-sm font-extrabold font-mono text-slate-900">
+                    <span className="text-base sm:text-lg font-extrabold font-mono text-slate-900">
                       {formatMoney(expectedDigital)}
                     </span>
                   </div>
-                  <div className="p-3 rounded-xl bg-blue-50 border border-blue-200">
-                    <span className="block text-3xs uppercase font-bold text-[#00559D]">
-                      Total Esperado Sistema
+
+                  <div className="px-2 py-1 sm:border-l sm:border-slate-200/80 sm:pl-4">
+                    <span className="block text-2xs uppercase font-bold text-[#00559D]">
+                      Total General
                     </span>
-                    <span className="text-sm font-extrabold font-mono text-[#00559D]">
+                    <span className="text-base sm:text-lg font-extrabold font-mono text-[#00559D]">
                       {formatMoney(expectedSystemTotal)}
                     </span>
                   </div>
                 </div>
-              </Card>
+              </div>
 
-              {/* Paso 2: Recuento Real Ingresado por el Trabajador y Cálculo de Diferencias */}
-              <Card className="p-4 sm:p-5 space-y-4">
-                <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-                  <h3 className="text-sm font-bold text-slate-900 font-heading">
-                    2. Recuento Real en Caja (Arqueo del Empleado)
-                  </h3>
-                  <Badge variant="orange">Recuento Físico</Badge>
-                </div>
+              {/* Bloque 2: ¿Cuánto hay realmente? */}
+              <div className="space-y-2.5">
+                <h3 className="text-xs sm:text-sm font-bold text-slate-800 uppercase tracking-wider font-heading">
+                  2. ¿Cuánto hay realmente?
+                </h3>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-end">
                   <div>
                     <Label
                       htmlFor="counted-cash"
                       className="flex items-center gap-1.5"
                     >
                       <Banknote className="w-4 h-4 text-emerald-600" />
-                      Efectivo Real Contado en Cajón ($)
+                      Efectivo real contado ($)
                     </Label>
                     <Input
                       id="counted-cash"
@@ -842,8 +816,8 @@ export default function CashFlow() {
                       required
                       value={countedCashInput}
                       onChange={(e) => setCountedCashInput(e.target.value)}
-                      placeholder="Ingresá el efectivo físico contado..."
-                      className="font-mono font-bold"
+                      placeholder="0"
+                      className="font-mono font-extrabold text-base sm:text-lg py-3"
                     />
                   </div>
 
@@ -853,7 +827,7 @@ export default function CashFlow() {
                       className="flex items-center gap-1.5"
                     >
                       <CreditCard className="w-4 h-4 text-primary" />
-                      Total Comprobantes Tarjeta / Transf. ($)
+                      Total comprobantes digitales ($)
                     </Label>
                     <Input
                       id="counted-cards"
@@ -862,36 +836,53 @@ export default function CashFlow() {
                       required
                       value={countedCardsInput}
                       onChange={(e) => setCountedCardsInput(e.target.value)}
-                      placeholder="Ingresá la suma de cupones/transferencias..."
-                      className="font-mono font-bold"
+                      placeholder="0"
+                      className="font-mono font-extrabold text-base sm:text-lg py-3"
                     />
                   </div>
                 </div>
+              </div>
 
-                {/* Indicador automático de Diferencia (Sobrante / Faltante / Exacto) */}
+              {/* Bloque 3: Resultado del Arqueo */}
+              <div className="space-y-3.5">
+                <h3 className="text-xs sm:text-sm font-bold text-slate-800 uppercase tracking-wider font-heading">
+                  3. Resultado del Arqueo
+                </h3>
+
                 <div
-                  className={`p-4 rounded-2xl border flex flex-col sm:flex-row sm:items-center justify-between gap-2 ${
+                  className={`p-4 sm:p-5 rounded-2xl border-2 flex flex-col sm:flex-row sm:items-center justify-between gap-2 transition-colors ${
                     difference === 0
-                      ? "bg-emerald-50 border-emerald-200 text-emerald-900"
-                      : difference > 0
-                        ? "bg-blue-50 border-blue-200 text-blue-900"
-                        : "bg-rose-50 border-rose-200 text-rose-900"
+                      ? "bg-emerald-50 border-emerald-300 text-emerald-900"
+                      : difference < 0
+                        ? "bg-rose-50 border-rose-300 text-rose-900"
+                        : "bg-amber-50 border-amber-300 text-amber-950"
                   }`}
                 >
-                  <div>
-                    <p className="text-xs font-bold uppercase tracking-wide">
-                      {difference === 0
-                        ? "Arqueo Perfecto (Sin diferencias)"
-                        : difference > 0
-                          ? "Sobrante detectado en caja"
-                          : "Faltante detectado en caja"}
-                    </p>
-                    <p className="text-2xs opacity-80 mt-0.5">
-                      Recuento real: {formatMoney(countedTotal)} vs. Sistema:{" "}
-                      {formatMoney(expectedSystemTotal)}
-                    </p>
+                  <div className="flex items-center gap-3">
+                    {difference === 0 ? (
+                      <CheckCircle2 className="w-7 h-7 text-emerald-600 shrink-0" />
+                    ) : (
+                      <AlertCircle
+                        className={`w-7 h-7 shrink-0 ${
+                          difference < 0 ? "text-rose-600" : "text-amber-600"
+                        }`}
+                      />
+                    )}
+                    <div>
+                      <p className="text-sm sm:text-base font-extrabold uppercase tracking-wide">
+                        {difference === 0
+                          ? "Da Exacto ($0)"
+                          : difference < 0
+                            ? `Falta Dinero (- ${formatMoney(difference)})`
+                            : `Sobra Dinero (+ ${formatMoney(difference)})`}
+                      </p>
+                      <p className="text-xs opacity-80">
+                        Contado real: {formatMoney(countedTotal)} • Esperado
+                        sistema: {formatMoney(expectedSystemTotal)}
+                      </p>
+                    </div>
                   </div>
-                  <div className="text-lg font-extrabold font-mono">
+                  <div className="text-xl sm:text-2xl font-extrabold font-mono shrink-0">
                     {difference === 0
                       ? "$ 0"
                       : `${difference > 0 ? "+" : "-"} ${formatMoney(difference)}`}
@@ -900,19 +891,19 @@ export default function CashFlow() {
 
                 <div>
                   <Label htmlFor="closure-notes">
-                    Observaciones o Justificación de Diferencias (Opcional)
+                    Observaciones (Opcional)
                   </Label>
                   <Input
                     id="closure-notes"
                     type="text"
                     value={closureNotes}
                     onChange={(e) => setClosureNotes(e.target.value)}
-                    placeholder="Ej. Turno cerrado sin novedades / Cambio chico..."
+                    placeholder="Ej. Turno cerrado sin novedades..."
                   />
                 </div>
-              </Card>
+              </div>
 
-              <div className="flex justify-end gap-3 pt-1">
+              <div className="flex justify-end gap-3 pt-2 border-t border-slate-100">
                 <Button
                   type="button"
                   variant="outline"
@@ -924,9 +915,9 @@ export default function CashFlow() {
                   type="submit"
                   variant="secondary"
                   icon={FileCheck2}
-                  className="px-5 font-bold shadow-md"
+                  className="px-6 py-2.5 font-bold shadow-md"
                 >
-                  Confirmar Cierre y Generar Reporte Diario
+                  Confirmar Cierre de Caja
                 </Button>
               </div>
             </form>

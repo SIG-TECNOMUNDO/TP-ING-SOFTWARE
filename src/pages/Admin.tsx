@@ -1,5 +1,4 @@
 import React, { useState } from "react"
-import { Link } from "react-router-dom"
 import { Card, Button, Badge, Input, Label, Select } from "../components/ui"
 import Modal from "../components/Modal"
 import {
@@ -16,9 +15,7 @@ import {
   Plus,
   MapPin,
   Phone,
-  ArrowRight,
-  Calculator,
-  ShieldCheck,
+  Tag,
 } from "lucide-react"
 
 type UserRole = "Administrador" | "Ventas" | "Técnico"
@@ -39,6 +36,34 @@ interface BranchConfig {
   manager: string
   status: "Activa" | "Mantenimiento"
 }
+
+interface PromotionRule {
+  id: string
+  branch: string
+  paymentOrDay: string
+  discountPercent: number
+}
+
+const initialPromotions: PromotionRule[] = [
+  {
+    id: "PROMO-1",
+    branch: "Todas las sucursales",
+    paymentOrDay: "Efectivo • Todos los días",
+    discountPercent: 10,
+  },
+  {
+    id: "PROMO-2",
+    branch: "Yofre Norte",
+    paymentOrDay: "Martes • Visa / Mastercard (1 pago)",
+    discountPercent: 15,
+  },
+  {
+    id: "PROMO-3",
+    branch: "Alta Córdoba",
+    paymentOrDay: "Jueves • Transferencia / Mercado Pago",
+    discountPercent: 10,
+  },
+]
 
 const initialUsers: SystemUser[] = [
   {
@@ -115,7 +140,7 @@ export default function Admin() {
     manager: "",
   })
 
-  // 3. Estado para Configuración del Sistema y Pagos
+  // 3. Estado para Configuración del Sistema, Pagos y Promociones por Sucursal
   const [systemConfig, setSystemConfig] = useState({
     companyName: "TecnoMundo - Ventas & Servicio Técnico",
     cuit: "30-71548921-9",
@@ -130,18 +155,45 @@ export default function Admin() {
     creditThree: "12",
     creditSix: "24",
     creditTwelve: "42",
-    promotionDay: "Martes",
-    promotionCard: "Visa",
-    promotionInstallments: "3 cuotas",
-    promotionDiscount: "15",
     virtualWallet: "Mercado Pago",
     walletAdjustmentType: "Sin ajuste",
     walletAdjustment: "0",
   })
 
+  // Reglas de Descuento y Promociones por Sucursal
+  const [promotions, setPromotions] =
+    useState<PromotionRule[]>(initialPromotions)
+  const [newPromo, setNewPromo] = useState({
+    branch: "Todas las sucursales",
+    paymentOrDay: "Efectivo • Todos los días",
+    discountPercent: "15",
+  })
+
   const showToast = (msg: string) => {
     setToastMsg(msg)
     window.setTimeout(() => setToastMsg(null), 4000)
+  }
+
+  const handleAddPromotion = () => {
+    const pct = Number(newPromo.discountPercent)
+    if (!newPromo.paymentOrDay.trim() || isNaN(pct) || pct <= 0 || pct > 100) {
+      return
+    }
+    const created: PromotionRule = {
+      id: `PROMO-${Date.now().toString().slice(-4)}`,
+      branch: newPromo.branch,
+      paymentOrDay: newPromo.paymentOrDay.trim(),
+      discountPercent: pct,
+    }
+    setPromotions((prev) => [created, ...prev])
+    showToast(
+      `Descuento del ${pct}% (${created.branch}) agregado al listado activo.`,
+    )
+  }
+
+  const handleRemovePromotion = (id: string) => {
+    setPromotions((prev) => prev.filter((p) => p.id !== id))
+    showToast("Descuento / promoción eliminado.")
   }
 
   // Handlers de Usuarios
@@ -257,28 +309,14 @@ export default function Admin() {
   return (
     <div className="space-y-6">
       {/* Encabezado */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 font-heading tracking-tight">
-            Administración
-          </h1>
-          <p className="mt-0.5 text-xs sm:text-sm text-slate-500">
-            Panel de control organizado en tarjetas para Usuarios, Sucursales y
-            Configuración del Sistema
-          </p>
-        </div>
-
-        {/* Acceso rápido al Cierre de Caja descentralizado en Caja */}
-        <Link to="/caja?action=cierre">
-          <Button
-            variant="outline"
-            icon={Calculator}
-            className="bg-white border-primary/30 text-primary hover:bg-blue-50 font-semibold text-xs sm:text-sm"
-          >
-            Ir a Cierre de Caja Diario
-            <ArrowRight className="w-3.5 h-3.5 ml-1.5" />
-          </Button>
-        </Link>
+      <div>
+        <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 font-heading tracking-tight">
+          Administración
+        </h1>
+        <p className="mt-0.5 text-xs sm:text-sm text-slate-500">
+          Panel de control organizado en tarjetas para Usuarios, Sucursales y
+          Configuración del Sistema
+        </p>
       </div>
 
       {/* Toast Global */}
@@ -389,15 +427,6 @@ export default function Admin() {
               </tbody>
             </table>
           </div>
-
-          <div className="px-5 py-3 bg-slate-50/70 border-t border-slate-100 flex items-center gap-2 text-2xs text-slate-500">
-            <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
-            <span>
-              Nota de permisos: Todos los empleados en turno tienen habilitado el{" "}
-              <strong>Cierre de Caja y Reporte Diario</strong> desde el módulo
-              Caja.
-            </span>
-          </div>
         </Card>
 
         {/* TARJETA 2: SUCURSALES (5 columnas) */}
@@ -478,8 +507,8 @@ export default function Admin() {
                 3. Configuración del Sistema y Medios de Pago
               </h2>
               <p className="text-2xs sm:text-xs text-slate-400">
-                Parámetros operativos globales, descuentos en efectivo, planes
-                de cuotas y billeteras virtuales
+                Parámetros operativos, planes de financiación y descuentos o
+                promociones configurables por sucursal
               </p>
             </div>
           </div>
@@ -487,8 +516,8 @@ export default function Admin() {
         </div>
 
         <form onSubmit={saveAllSettings} className="p-5 sm:p-6 space-y-6">
-          {/* Sub-tarjetas internas en Grid */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+          {/* Sub-tarjetas superiores: Parámetros Generales + Financiación y Billeteras */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
             {/* Bloque A: Parámetros Generales del Sistema */}
             <div className="p-4 sm:p-5 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-4">
               <div className="flex items-center gap-2 border-b border-slate-200/80 pb-2.5">
@@ -512,7 +541,7 @@ export default function Admin() {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 gap-3 items-end">
                 <div>
                   <Label>CUIT</Label>
                   <Input
@@ -555,49 +584,16 @@ export default function Admin() {
               </div>
             </div>
 
-            {/* Bloque B: Efectivo y Tarjetas */}
+            {/* Bloque B: Financiación con Tarjetas y Billeteras Virtuales */}
             <div className="p-4 sm:p-5 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-4">
               <div className="flex items-center gap-2 border-b border-slate-200/80 pb-2.5">
                 <CreditCard className="w-4 h-4 text-[#F56C00]" />
                 <h3 className="text-xs sm:text-sm font-bold text-slate-900 font-heading">
-                  Efectivo y Financiación con Tarjetas
+                  Financiación con Tarjetas y Billeteras
                 </h3>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <Label htmlFor="cash-discount">Descuento Efectivo (%)</Label>
-                  <Input
-                    id="cash-discount"
-                    type="number"
-                    min="0"
-                    max="100"
-                    step="0.1"
-                    value={paymentSettings.cashDiscount}
-                    onChange={(e) =>
-                      updatePaymentSetting("cashDiscount", e.target.value)
-                    }
-                    className="bg-white font-mono"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="debit-surcharge">Recargo Débito (%)</Label>
-                  <Input
-                    id="debit-surcharge"
-                    type="number"
-                    min="0"
-                    max="100"
-                    step="0.1"
-                    value={paymentSettings.debitSurcharge}
-                    onChange={(e) =>
-                      updatePaymentSetting("debitSurcharge", e.target.value)
-                    }
-                    className="bg-white font-mono"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-3 gap-2.5 items-end">
                 <div>
                   <Label htmlFor="card-brand">Tarjeta</Label>
                   <Select
@@ -629,9 +625,24 @@ export default function Admin() {
                     <option>Débito</option>
                   </Select>
                 </div>
+                <div>
+                  <Label htmlFor="debit-surcharge">Recargo Débito (%)</Label>
+                  <Input
+                    id="debit-surcharge"
+                    type="number"
+                    min="0"
+                    max="100"
+                    step="0.1"
+                    value={paymentSettings.debitSurcharge}
+                    onChange={(e) =>
+                      updatePaymentSetting("debitSurcharge", e.target.value)
+                    }
+                    className="bg-white font-mono"
+                  />
+                </div>
               </div>
 
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-3 gap-2.5 items-end">
                 <div>
                   <Label htmlFor="credit-three">3 Cuotas (%)</Label>
                   <Input
@@ -669,92 +680,217 @@ export default function Admin() {
                   />
                 </div>
               </div>
-            </div>
 
-            {/* Bloque C: Promociones por Día y Billeteras Virtuales */}
-            <div className="p-4 sm:p-5 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-4">
-              <div className="flex items-center gap-2 border-b border-slate-200/80 pb-2.5">
-                <CalendarDays className="w-4 h-4 text-emerald-600" />
-                <h3 className="text-xs sm:text-sm font-bold text-slate-900 font-heading">
-                  Promociones y Billeteras
-                </h3>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
+              <div className="pt-2 border-t border-slate-200/70 grid grid-cols-2 gap-3 items-end">
                 <div>
-                  <Label htmlFor="promotion-day">Día Promoción</Label>
+                  <Label
+                    htmlFor="virtual-wallet"
+                    className="flex items-center gap-1"
+                  >
+                    <Wallet className="w-3 h-3 text-primary" />
+                    Billetera Virtual
+                  </Label>
                   <Select
-                    id="promotion-day"
-                    value={paymentSettings.promotionDay}
+                    id="virtual-wallet"
+                    value={paymentSettings.virtualWallet}
                     onChange={(e) =>
-                      updatePaymentSetting("promotionDay", e.target.value)
+                      updatePaymentSetting("virtualWallet", e.target.value)
                     }
                     className="bg-white"
                   >
-                    <option>Lunes</option>
-                    <option>Martes</option>
-                    <option>Miércoles</option>
-                    <option>Jueves</option>
-                    <option>Viernes</option>
-                    <option>Sábado</option>
+                    <option>Mercado Pago</option>
+                    <option>MODO</option>
+                    <option>Ualá</option>
+                    <option>Naranja X</option>
                   </Select>
                 </div>
                 <div>
-                  <Label htmlFor="promotion-discount">Dto. Promo (%)</Label>
-                  <Input
-                    id="promotion-discount"
-                    type="number"
-                    value={paymentSettings.promotionDiscount}
+                  <Label htmlFor="wallet-adjustment-type">Ajuste Billetera</Label>
+                  <Select
+                    id="wallet-adjustment-type"
+                    value={paymentSettings.walletAdjustmentType}
                     onChange={(e) =>
-                      updatePaymentSetting("promotionDiscount", e.target.value)
+                      updatePaymentSetting(
+                        "walletAdjustmentType",
+                        e.target.value,
+                      )
                     }
-                    className="bg-white font-mono"
-                  />
+                    className="bg-white"
+                  >
+                    <option>Sin ajuste</option>
+                    <option>Descuento</option>
+                    <option>Recargo</option>
+                  </Select>
                 </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Bloque C: Descuentos y Promociones por Sucursal (Múltiples Reglas) */}
+          <div className="p-4 sm:p-5 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-200/80 pb-3">
+              <div className="flex items-center gap-2">
+                <CalendarDays className="w-4 h-4 text-emerald-600" />
+                <div>
+                  <h3 className="text-xs sm:text-sm font-bold text-slate-900 font-heading">
+                    Descuentos y Promociones por Sucursal
+                  </h3>
+                  <p className="text-2xs text-slate-500">
+                    Configurá qué descuentos y promociones aplican en cada
+                    sucursal según medio de pago o día
+                  </p>
+                </div>
+              </div>
+              <Badge variant="green">
+                {promotions.length} reglas activas
+              </Badge>
+            </div>
+
+            {/* Formulario para agregar nueva regla de descuento / promoción */}
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end bg-white p-3.5 rounded-2xl border border-slate-200/80">
+              <div className="md:col-span-3">
+                <Label htmlFor="promo-branch">Sucursal</Label>
+                <Select
+                  id="promo-branch"
+                  value={newPromo.branch}
+                  onChange={(e) =>
+                    setNewPromo((p) => ({ ...p, branch: e.target.value }))
+                  }
+                >
+                  <option value="Todas las sucursales">
+                    Todas las sucursales
+                  </option>
+                  <option value="Yofre Norte">Yofre Norte</option>
+                  <option value="Alta Córdoba">Alta Córdoba</option>
+                  {branches
+                    .filter(
+                      (b) =>
+                        b.name !== "Yofre Norte" && b.name !== "Alta Córdoba",
+                    )
+                    .map((b) => (
+                      <option key={b.id} value={b.name}>
+                        {b.name}
+                      </option>
+                    ))}
+                </Select>
               </div>
 
-              <div className="pt-2 border-t border-slate-200/70 space-y-3">
-                <div className="flex items-center gap-1.5 text-xs font-bold text-slate-700">
-                  <Wallet className="w-3.5 h-3.5 text-primary" />
-                  <span>Billeteras Virtuales</span>
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <Label htmlFor="virtual-wallet">Billetera</Label>
-                    <Select
-                      id="virtual-wallet"
-                      value={paymentSettings.virtualWallet}
-                      onChange={(e) =>
-                        updatePaymentSetting("virtualWallet", e.target.value)
-                      }
-                      className="bg-white"
-                    >
-                      <option>Mercado Pago</option>
-                      <option>MODO</option>
-                      <option>Ualá</option>
-                      <option>Naranja X</option>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label htmlFor="wallet-adjustment-type">Ajuste</Label>
-                    <Select
-                      id="wallet-adjustment-type"
-                      value={paymentSettings.walletAdjustmentType}
-                      onChange={(e) =>
-                        updatePaymentSetting(
-                          "walletAdjustmentType",
-                          e.target.value,
-                        )
-                      }
-                      className="bg-white"
-                    >
-                      <option>Sin ajuste</option>
-                      <option>Descuento</option>
-                      <option>Recargo</option>
-                    </Select>
-                  </div>
-                </div>
+              <div className="md:col-span-4">
+                <Label htmlFor="promo-method-day">Medio de Pago / Día</Label>
+                <Select
+                  id="promo-method-day"
+                  value={newPromo.paymentOrDay}
+                  onChange={(e) =>
+                    setNewPromo((p) => ({ ...p, paymentOrDay: e.target.value }))
+                  }
+                >
+                  <option value="Efectivo • Todos los días">
+                    Efectivo • Todos los días
+                  </option>
+                  <option value="Transferencia • Todos los días">
+                    Transferencia • Todos los días
+                  </option>
+                  <option value="Lunes • Efectivo / Débito">
+                    Lunes • Efectivo / Débito
+                  </option>
+                  <option value="Martes • Visa / Mastercard (1 pago)">
+                    Martes • Visa / Mastercard (1 pago)
+                  </option>
+                  <option value="Miércoles • Billeteras QR">
+                    Miércoles • Billeteras QR
+                  </option>
+                  <option value="Jueves • Transferencia / Mercado Pago">
+                    Jueves • Transferencia / Mercado Pago
+                  </option>
+                  <option value="Viernes • Tarjeta Naranja X">
+                    Viernes • Tarjeta Naranja X
+                  </option>
+                  <option value="Sábado • Efectivo en Mostrador">
+                    Sábado • Efectivo en Mostrador
+                  </option>
+                </Select>
               </div>
+
+              <div className="md:col-span-2">
+                <Label htmlFor="promo-percent">Descuento (%)</Label>
+                <Input
+                  id="promo-percent"
+                  type="number"
+                  min="1"
+                  max="100"
+                  value={newPromo.discountPercent}
+                  onChange={(e) =>
+                    setNewPromo((p) => ({
+                      ...p,
+                      discountPercent: e.target.value,
+                    }))
+                  }
+                  className="font-mono font-bold"
+                />
+              </div>
+
+              <div className="md:col-span-3">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  icon={Plus}
+                  onClick={handleAddPromotion}
+                  className="w-full py-2.5 text-xs font-bold shadow-xs"
+                >
+                  Agregar Descuento / Promoción
+                </Button>
+              </div>
+            </div>
+
+            {/* Listado activo de descuentos y promociones */}
+            <div className="space-y-2">
+              {promotions.map((promo) => (
+                <div
+                  key={promo.id}
+                  className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 px-4 py-3 rounded-xl bg-white border border-slate-200/80 hover:border-slate-300 transition-colors"
+                >
+                  <div className="flex flex-wrap items-center gap-2.5">
+                    <div className="p-1.5 rounded-lg bg-emerald-50 text-emerald-600 border border-emerald-200/60">
+                      <Tag className="w-3.5 h-3.5" />
+                    </div>
+                    <Badge
+                      variant={
+                        promo.branch === "Todas las sucursales"
+                          ? "purple"
+                          : promo.branch === "Yofre Norte"
+                            ? "blue"
+                            : "orange"
+                      }
+                    >
+                      {promo.branch}
+                    </Badge>
+                    <span className="text-xs sm:text-sm font-bold text-slate-900">
+                      {promo.paymentOrDay}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between sm:justify-end gap-3">
+                    <span className="inline-flex items-center px-2.5 py-1 rounded-lg bg-emerald-50 border border-emerald-200 text-xs font-extrabold font-mono text-emerald-700">
+                      -{promo.discountPercent}% OFF
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => handleRemovePromotion(promo.id)}
+                      className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
+                      title="Eliminar regla de descuento"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              ))}
+
+              {promotions.length === 0 && (
+                <div className="py-6 text-center text-xs text-slate-400 bg-white rounded-xl border border-dashed border-slate-200">
+                  No hay descuentos o promociones activos. Agregá una regla
+                  arriba.
+                </div>
+              )}
             </div>
           </div>
 
