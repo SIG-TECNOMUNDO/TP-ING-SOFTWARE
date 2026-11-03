@@ -1,31 +1,31 @@
-import React, { useMemo, useState } from "react"
+import React, { useMemo, useState, useEffect } from "react"
+import { useSearchParams } from "react-router-dom"
 import { Card, Button, Badge, Input, Label, Select } from "../components/ui"
 import Modal from "../components/Modal"
 import {
-  ShoppingCart,
-  Wrench,
-  TrendingDown,
   WalletCards,
   ArrowDownRight,
   ArrowUpRight,
   PlusCircle,
-  FileText,
   Calendar,
-  Building2,
-  Clock,
-  CheckCircle,
+  CheckCircle2,
   AlertCircle,
   Filter,
+  Calculator,
+  Printer,
+  FileCheck2,
+  Banknote,
+  CreditCard,
+  RotateCcw,
+  X,
 } from "lucide-react"
+import { useAuth } from "../context/AuthContext"
 
-export type SourceModule = "VENTAS" | "SAT" | "MANUAL"
 export type MovementType = "INCOME" | "EXPENSE"
 
 export interface CashMovement {
   id: string
-  date: string // ISO string YYYY-MM-DDTHH:mm:ss
-  branch: "Yofre Norte" | "Alta Córdoba"
-  source: SourceModule
+  date: string // YYYY-MM-DDTHH:mm:ss
   concept: string
   paymentMethod: string
   user: string
@@ -33,7 +33,6 @@ export interface CashMovement {
   type: MovementType
 }
 
-// Generador de fechas para mock data consistente con el día actual
 const getIsoDate = (daysAgo: number, timeStr: string) => {
   const d = new Date()
   d.setDate(d.getDate() - daysAgo)
@@ -43,13 +42,18 @@ const getIsoDate = (daysAgo: number, timeStr: string) => {
   return `${yyyy}-${mm}-${dd}T${timeStr}`
 }
 
-// Datos iniciales de demostración mezclando Ventas, SAT y Ajustes manuales
+const todayDateStr = () => {
+  const d = new Date()
+  const yyyy = d.getFullYear()
+  const mm = String(d.getMonth() + 1).padStart(2, "0")
+  const dd = String(d.getDate()).padStart(2, "0")
+  return `${yyyy}-${mm}-${dd}`
+}
+
 const initialMovements: CashMovement[] = [
   {
     id: "MOV-001",
     date: getIsoDate(0, "09:30:00"),
-    branch: "Yofre Norte",
-    source: "VENTAS",
     concept: "Venta de mostrador #000245 - Samsung Galaxy A54",
     paymentMethod: "Efectivo",
     user: "Ventas Yofre",
@@ -59,10 +63,8 @@ const initialMovements: CashMovement[] = [
   {
     id: "MOV-002",
     date: getIsoDate(0, "10:15:00"),
-    branch: "Alta Córdoba",
-    source: "SAT",
-    concept: "Cobro OT #042 - Cambio Módulo OLED iPhone 13 Pro",
-    paymentMethod: "Tarjeta de Crédito",
+    concept: "Cobro OT #10452 - Cambio Módulo OLED iPhone 13 Pro",
+    paymentMethod: "Tarjeta",
     user: "Técnico Alta Cba",
     amount: 125000,
     type: "INCOME",
@@ -70,21 +72,17 @@ const initialMovements: CashMovement[] = [
   {
     id: "MOV-003",
     date: getIsoDate(0, "11:20:00"),
-    branch: "Yofre Norte",
-    source: "MANUAL",
-    concept: "Compra de insumos de librería, rollos de papel y remitos",
+    concept: "Compra de insumos de librería y rollos térmicos",
     paymentMethod: "Efectivo",
-    user: "Administrador Principal",
+    user: "Ventas Yofre",
     amount: 12400,
     type: "EXPENSE",
   },
   {
     id: "MOV-004",
     date: getIsoDate(0, "12:45:00"),
-    branch: "Alta Córdoba",
-    source: "VENTAS",
     concept: "Venta de mostrador #000246 - Auriculares JBL + Funda MagSafe",
-    paymentMethod: "Mercado Pago",
+    paymentMethod: "Transferencia",
     user: "Ventas Alta Cba",
     amount: 60000,
     type: "INCOME",
@@ -92,78 +90,43 @@ const initialMovements: CashMovement[] = [
   {
     id: "MOV-005",
     date: getIsoDate(0, "14:10:00"),
-    branch: "Yofre Norte",
-    source: "SAT",
-    concept: "Cobro OT #038 - Reparación pin de carga Motorola G22",
-    paymentMethod: "Transferencia",
+    concept: "Cobro OT #10448 - Reparación pin de carga Motorola G22",
+    paymentMethod: "Efectivo",
     user: "Técnico Yofre",
     amount: 38500,
     type: "INCOME",
   },
   {
     id: "MOV-006",
-    date: getIsoDate(0, "15:30:00"),
-    branch: "Alta Córdoba",
-    source: "MANUAL",
-    concept: "Ajuste por sobrante de caja chica turno mañana",
-    paymentMethod: "Efectivo",
-    user: "Administrador Principal",
-    amount: 3500,
-    type: "INCOME",
-  },
-  {
-    id: "MOV-007",
     date: getIsoDate(1, "16:20:00"),
-    branch: "Yofre Norte",
-    source: "MANUAL",
-    concept: "Envío cadetería urgente de repuestos entre sucursales",
+    concept: "Envío cadetería de repuestos entre sucursales",
     paymentMethod: "Efectivo",
-    user: "Administrador Principal",
+    user: "Ventas Yofre",
     amount: 8000,
     type: "EXPENSE",
   },
   {
-    id: "MOV-008",
+    id: "MOV-007",
     date: getIsoDate(1, "17:15:00"),
-    branch: "Alta Córdoba",
-    source: "SAT",
-    concept: "Cobro OT #035 - Reemplazo de Batería Original iPhone 11",
+    concept: "Cobro OT #10442 - Reemplazo de Batería Original iPhone 11",
     paymentMethod: "Efectivo",
     user: "Técnico Alta Cba",
     amount: 45000,
     type: "INCOME",
   },
   {
-    id: "MOV-009",
+    id: "MOV-008",
     date: getIsoDate(2, "18:00:00"),
-    branch: "Yofre Norte",
-    source: "VENTAS",
-    concept: "Venta de mostrador #000244 - Cargador Samsung 25W Tipo C",
-    paymentMethod: "Tarjeta de Débito",
+    concept: "Venta de mostrador #000240 - Cargador Samsung 25W Tipo C",
+    paymentMethod: "Tarjeta",
     user: "Ventas Yofre",
     amount: 22000,
     type: "INCOME",
   },
-  {
-    id: "MOV-010",
-    date: getIsoDate(2, "19:10:00"),
-    branch: "Alta Córdoba",
-    source: "MANUAL",
-    concept: "Justificación de diferencia / redondeo en cambio de caja",
-    paymentMethod: "Efectivo",
-    user: "Administrador Principal",
-    amount: 1500,
-    type: "EXPENSE",
-  },
 ]
 
-// Formateadores de moneda y fecha
 const formatMoney = (val: number) =>
-  new Intl.NumberFormat("es-AR", {
-    style: "currency",
-    currency: "ARS",
-    maximumFractionDigits: 0,
-  }).format(val)
+  `$ ${Math.abs(val).toLocaleString("es-AR")}`
 
 const formatDateTime = (dateStr: string) => {
   return new Intl.DateTimeFormat("es-AR", {
@@ -172,111 +135,181 @@ const formatDateTime = (dateStr: string) => {
   }).format(new Date(dateStr))
 }
 
+interface DailyClosureReport {
+  id: string
+  closedAt: string
+  employee: string
+  initialCash: number
+  systemCashIncome: number
+  systemCardIncome: number
+  systemExpenses: number
+  expectedTotal: number
+  countedCash: number
+  countedCards: number
+  countedTotal: number
+  difference: number
+  notes: string
+}
+
 export default function CashFlow() {
-  // Estado de los movimientos de caja
+  const { user } = useAuth()
+  const [searchParams, setSearchParams] = useSearchParams()
+
   const [movements, setMovements] = useState<CashMovement[]>(initialMovements)
 
-  // Filtros superiores
-  const [period, setPeriod] =
-    useState<"Diario" | "Semanal" | "Mensual" | "Anual">("Diario")
-  const [branchFilter, setBranchFilter] = useState("Todas")
-  const [selectedDate, setSelectedDate] = useState(() =>
-    new Date().toISOString().slice(0, 10),
-  )
+  // Inputs de filtro de fechas ("Desde" y "Hasta") + estado aplicado con botón "Filtrar"
+  const [dateFromInput, setDateFromInput] = useState("")
+  const [dateToInput, setDateToInput] = useState("")
+  const [appliedDateRange, setAppliedDateRange] = useState<{
+    from: string
+    to: string
+  }>({ from: "", to: "" })
 
-  // Estado para modal de Nuevo Movimiento / Ajuste
-  const [isModalOpen, setIsModalOpen] = useState(false)
-  const [toastMessage, setToastMessage] = useState<string | null>(null)
+  // Modal de Nuevo Movimiento
+  const [isNewMovModalOpen, setIsNewMovModalOpen] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
-
-  // Formulario del nuevo movimiento
+  const [toastMessage, setToastMessage] = useState<string | null>(null)
   const [formData, setFormData] = useState({
     type: "EXPENSE" as MovementType,
-    branch: "Yofre Norte" as "Yofre Norte" | "Alta Córdoba",
     concept: "",
     paymentMethod: "Efectivo",
     amount: "",
-    user: "Administrador Principal",
+    user: user?.name || "Operador de Turno",
   })
 
-  // Filtrado de movimientos según período, sucursal y fecha
+  // Modal de Cierre de Caja Diario y Reporte (Accesible a cualquier empleado)
+  const [isClosureModalOpen, setIsClosureModalOpen] = useState(false)
+  const [initialCashInput, setInitialCashInput] = useState("50000")
+  const [countedCashInput, setCountedCashInput] = useState("")
+  const [countedCardsInput, setCountedCardsInput] = useState("")
+  const [closureNotes, setClosureNotes] = useState("")
+  const [lastClosureReport, setLastClosureReport] =
+    useState<DailyClosureReport | null>(null)
+
+  useEffect(() => {
+    if (searchParams.get("action") === "cierre") {
+      setIsClosureModalOpen(true)
+      setSearchParams({}, { replace: true })
+    }
+  }, [searchParams, setSearchParams])
+
+  // Aplicar filtro de rango de fechas al hacer clic en "Filtrar"
+  const handleApplyDateFilter = (e: React.FormEvent) => {
+    e.preventDefault()
+    setAppliedDateRange({
+      from: dateFromInput,
+      to: dateToInput,
+    })
+  }
+
+  const handleResetDateFilter = () => {
+    setDateFromInput("")
+    setDateToInput("")
+    setAppliedDateRange({ from: "", to: "" })
+  }
+
+  // Movimientos filtrados según "Desde" y "Hasta"
   const filteredMovements = useMemo(() => {
-    return movements.filter((item) => {
-      // Filtro de Sucursal
-      if (branchFilter !== "Todas" && item.branch !== branchFilter) {
+    return movements.filter((mov) => {
+      const movDay = mov.date.slice(0, 10)
+      if (appliedDateRange.from && movDay < appliedDateRange.from) {
         return false
       }
-
-      // Filtro de Período y Fecha
-      if (period === "Diario") {
-        if (selectedDate) {
-          return item.date.startsWith(selectedDate)
-        }
-      } else if (period === "Semanal") {
-        if (selectedDate) {
-          const target = new Date(selectedDate + "T23:59:59").getTime()
-          const itemTime = new Date(item.date).getTime()
-          const diffDays = (target - itemTime) / (1000 * 60 * 60 * 24)
-          return diffDays >= 0 && diffDays <= 7
-        }
-      } else if (period === "Mensual") {
-        if (selectedDate) {
-          return item.date.slice(0, 7) === selectedDate.slice(0, 7)
-        }
-      } else if (period === "Anual") {
-        if (selectedDate) {
-          return item.date.slice(0, 4) === selectedDate.slice(0, 4)
-        }
+      if (appliedDateRange.to && movDay > appliedDateRange.to) {
+        return false
       }
-
       return true
     })
-  }, [movements, branchFilter, period, selectedDate])
+  }, [movements, appliedDateRange])
 
-  // Cálculo dinámico de los 4 KPIs Financieros
-  const kpiData = useMemo(() => {
-    let salesIncome = 0
-    let satIncome = 0
-    let manualIncome = 0
-    let expenses = 0
+  // Totales de la vista actual
+  const summary = useMemo(() => {
+    let totalIncome = 0
+    let totalExpenses = 0
+    let cashIncome = 0
+    let cardAndDigitalIncome = 0
+    let cashExpenses = 0
 
     for (const mov of filteredMovements) {
-      if (mov.type === "EXPENSE") {
-        expenses += mov.amount
+      if (mov.type === "INCOME") {
+        totalIncome += mov.amount
+        if (mov.paymentMethod === "Efectivo") {
+          cashIncome += mov.amount
+        } else {
+          cardAndDigitalIncome += mov.amount
+        }
       } else {
-        if (mov.source === "VENTAS") salesIncome += mov.amount
-        else if (mov.source === "SAT") satIncome += mov.amount
-        else manualIncome += mov.amount
+        totalExpenses += mov.amount
+        if (mov.paymentMethod === "Efectivo") {
+          cashExpenses += mov.amount
+        }
       }
     }
 
-    const totalBalance = salesIncome + satIncome + manualIncome - expenses
-
     return {
-      salesIncome,
-      satIncome,
-      expenses,
-      totalBalance,
+      totalIncome,
+      totalExpenses,
+      netBalance: totalIncome - totalExpenses,
+      cashIncome,
+      cardAndDigitalIncome,
+      cashExpenses,
     }
   }, [filteredMovements])
 
-  // Handlers para el Modal de Ajuste
-  const handleOpenModal = () => {
-    setFormData({
-      type: "EXPENSE",
-      branch: "Yofre Norte",
-      concept: "",
-      paymentMethod: "Efectivo",
-      amount: "",
-      user: "Administrador Principal",
-    })
-    setFormError(null)
-    setIsModalOpen(true)
+  // Cálculos automáticos para el Cierre de Caja del Turno
+  const initialCash = Math.max(0, Number(initialCashInput) || 0)
+  const expectedCashInDrawer = Math.max(
+    0,
+    initialCash + summary.cashIncome - summary.cashExpenses,
+  )
+  const expectedDigital = summary.cardAndDigitalIncome
+  const expectedSystemTotal = expectedCashInDrawer + expectedDigital
+
+  const countedCash =
+    countedCashInput === ""
+      ? expectedCashInDrawer
+      : Math.max(0, Number(countedCashInput) || 0)
+  const countedCards =
+    countedCardsInput === ""
+      ? expectedDigital
+      : Math.max(0, Number(countedCardsInput) || 0)
+  const countedTotal = countedCash + countedCards
+  const difference = countedTotal - expectedSystemTotal
+
+  const openClosureModal = () => {
+    setCountedCashInput(String(expectedCashInDrawer))
+    setCountedCardsInput(String(expectedDigital))
+    setClosureNotes("")
+    setIsClosureModalOpen(true)
   }
 
-  const handleCloseModal = () => {
-    setIsModalOpen(false)
-    setFormError(null)
+  const handleConfirmClosure = (e: React.FormEvent) => {
+    e.preventDefault()
+    const report: DailyClosureReport = {
+      id: `CIE-${Math.floor(1000 + Math.random() * 9000)}`,
+      closedAt: new Date().toLocaleString("es-AR", {
+        dateStyle: "short",
+        timeStyle: "short",
+      }),
+      employee: user?.name || "Operador de Turno",
+      initialCash,
+      systemCashIncome: summary.cashIncome,
+      systemCardIncome: summary.cardAndDigitalIncome,
+      systemExpenses: summary.totalExpenses,
+      expectedTotal: expectedSystemTotal,
+      countedCash,
+      countedCards,
+      countedTotal,
+      difference,
+      notes: closureNotes.trim() || "Sin observaciones adicionales.",
+    }
+
+    setLastClosureReport(report)
+    setIsClosureModalOpen(false)
+    setToastMessage(
+      `Cierre de Caja ${report.id} y Reporte Diario generados con éxito por ${report.employee}.`,
+    )
+    window.setTimeout(() => setToastMessage(null), 5000)
   }
 
   const handleCreateMovement = (e: React.FormEvent) => {
@@ -285,343 +318,369 @@ export default function CashFlow() {
 
     const numAmount = parseFloat(formData.amount)
     if (isNaN(numAmount) || numAmount <= 0) {
-      setFormError("Por favor ingrese un monto válido mayor a 0.")
+      setFormError("Por favor ingresá un monto válido mayor a 0.")
       return
     }
 
     if (!formData.concept.trim()) {
-      setFormError("Por favor ingrese un concepto o justificación.")
+      setFormError("Por favor ingresá un concepto.")
       return
     }
 
     const newMov: CashMovement = {
       id: `MOV-${Date.now().toString().slice(-4)}`,
       date: new Date().toISOString(),
-      branch: formData.branch,
-      source: "MANUAL",
       concept: formData.concept.trim(),
       paymentMethod: formData.paymentMethod,
-      user: formData.user.trim() || "Administrador",
+      user: formData.user.trim() || user?.name || "Operador",
       amount: numAmount,
       type: formData.type,
     }
 
     setMovements((prev) => [newMov, ...prev])
-    setIsModalOpen(false)
-    const actionLabel =
-      formData.type === "INCOME" ? "Ingreso manual" : "Egreso/Ajuste"
+    setIsNewMovModalOpen(false)
     setToastMessage(
-      `${actionLabel} de ${formatMoney(numAmount)} registrado correctamente.`,
+      `${formData.type === "INCOME" ? "Ingreso" : "Egreso"} de ${formatMoney(numAmount)} registrado en caja.`,
     )
     window.setTimeout(() => setToastMessage(null), 4000)
   }
 
   return (
     <div className="space-y-6">
-      {/* 1. Encabezado y Botón de Acción */}
+      {/* Encabezado minimalista con acceso directo a Cierre de Caja para todos los empleados */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-            <WalletCards className="h-7 w-7 text-primary" />
+          <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 font-heading tracking-tight">
             Caja y Movimientos
           </h1>
-          <p className="mt-1 text-sm text-gray-500">
-            Registro histórico centralizado y flujo de fondos de Ventas,
-            Servicio Técnico (SAT) y movimientos manuales.
+          <p className="mt-0.5 text-xs sm:text-sm text-slate-500">
+            Control minimalista de ingresos, egresos y arqueo de cierre de turno
           </p>
         </div>
 
-        <Button
-          icon={PlusCircle}
-          onClick={handleOpenModal}
-          className="shadow-sm py-2 px-4 text-sm font-semibold whitespace-nowrap"
-        >
-          Nuevo Movimiento / Ajuste
-        </Button>
+        <div className="flex flex-wrap items-center gap-2.5">
+          <Button
+            variant="outline"
+            icon={PlusCircle}
+            onClick={() => {
+              setFormData({
+                type: "EXPENSE",
+                concept: "",
+                paymentMethod: "Efectivo",
+                amount: "",
+                user: user?.name || "Operador de Turno",
+              })
+              setFormError(null)
+              setIsNewMovModalOpen(true)
+            }}
+            className="bg-white py-2.5 px-4 text-xs sm:text-sm font-semibold"
+          >
+            Registrar Movimiento
+          </Button>
+
+          <Button
+            variant="secondary"
+            icon={Calculator}
+            onClick={openClosureModal}
+            className="py-2.5 px-4 sm:px-5 text-xs sm:text-sm font-bold shadow-md hover:shadow-lg"
+          >
+            Cierre de Caja y Reporte Diario
+          </Button>
+        </div>
       </div>
 
-      {/* Toast de Éxito */}
+      {/* Toast de Confirmación */}
       {toastMessage && (
-        <div className="p-4 rounded-lg bg-green-50 border border-green-200 text-green-800 flex items-center justify-between shadow-xs animate-fade-in">
-          <div className="flex items-center space-x-2">
-            <CheckCircle className="h-5 w-5 text-green-600 flex-shrink-0" />
-            <span className="text-sm font-medium">{toastMessage}</span>
+        <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-900 flex items-center justify-between shadow-sm animate-fadeIn">
+          <div className="flex items-center space-x-2.5">
+            <CheckCircle2 className="h-5 w-5 text-emerald-600 shrink-0" />
+            <span className="text-xs sm:text-sm font-bold">{toastMessage}</span>
           </div>
           <button
             onClick={() => setToastMessage(null)}
-            className="text-green-600 hover:text-green-800 text-xs font-semibold uppercase tracking-wider"
+            className="text-emerald-700 hover:text-emerald-900 text-xs font-bold uppercase tracking-wider cursor-pointer"
           >
             Cerrar
           </button>
         </div>
       )}
 
-      {/* 1. Barra de Filtros Superiores */}
-      <Card className="p-4 bg-white border-gray-200 shadow-xs">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div>
-            <Label
-              htmlFor="period-select"
-              className="flex items-center gap-1.5 text-xs text-gray-600 uppercase font-semibold"
-            >
-              <Clock className="w-3.5 h-3.5 text-primary" /> Período
-            </Label>
-            <Select
-              id="period-select"
-              value={period}
-              onChange={(e) =>
-                setPeriod(
-                  e.target.value as "Diario" | "Semanal" | "Mensual" | "Anual",
-                )
-              }
-            >
-              <option value="Diario">Caja Diaria</option>
-              <option value="Semanal">Semanal</option>
-              <option value="Mensual">Mensual</option>
-              <option value="Anual">Anual</option>
-            </Select>
-          </div>
-
-          <div>
-            <Label
-              htmlFor="branch-select"
-              className="flex items-center gap-1.5 text-xs text-gray-600 uppercase font-semibold"
-            >
-              <Building2 className="w-3.5 h-3.5 text-primary" /> Sucursal
-            </Label>
-            <Select
-              id="branch-select"
-              value={branchFilter}
-              onChange={(e) => setBranchFilter(e.target.value)}
-            >
-              <option value="Todas">Todas las sucursales</option>
-              <option value="Yofre Norte">Yofre Norte</option>
-              <option value="Alta Córdoba">Alta Córdoba</option>
-            </Select>
-          </div>
-
-          <div>
-            <Label
-              htmlFor="date-select"
-              className="flex items-center gap-1.5 text-xs text-gray-600 uppercase font-semibold"
-            >
-              <Calendar className="w-3.5 h-3.5 text-primary" /> Consultar Fecha
-              Específica
-            </Label>
-            <Input
-              id="date-select"
-              type="date"
-              value={selectedDate}
-              onChange={(e) => setSelectedDate(e.target.value)}
-            />
-          </div>
-        </div>
-      </Card>
-
-      {/* 2. Panel de Indicadores (KPI Cards) */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Ingresos Ventas */}
-        <Card className="p-5 border-l-4 border-l-primary hover:shadow-md transition-shadow">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                Ingresos Ventas
-              </p>
-              <p className="mt-2 text-2xl font-bold text-gray-900 font-mono">
-                {formatMoney(kpiData.salesIncome)}
-              </p>
-              <p className="mt-1 text-xs text-blue-600 font-medium flex items-center">
-                <ArrowUpRight className="w-3.5 h-3.5 mr-0.5" /> Módulo de Ventas
-              </p>
+      {/* Tarjeta de Reporte Diario Generado (si el empleado acaba de cerrar turno) */}
+      {lastClosureReport && (
+        <Card className="p-5 border-2 border-emerald-200 bg-white">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-100">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 rounded-2xl bg-emerald-50 text-emerald-600 border border-emerald-200">
+                <FileCheck2 className="w-5 h-5" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h2 className="text-sm sm:text-base font-bold text-slate-900 font-heading">
+                    Reporte Diario de Cierre Emitido ({lastClosureReport.id})
+                  </h2>
+                  <Badge variant="green">Cerrado</Badge>
+                </div>
+                <p className="text-2xs text-slate-500">
+                  Responsable: <strong>{lastClosureReport.employee}</strong> •
+                  Fecha: {lastClosureReport.closedAt}
+                </p>
+              </div>
             </div>
-            <div className="p-3 bg-blue-50 text-primary rounded-xl">
-              <ShoppingCart className="w-6 h-6" />
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                icon={Printer}
+                onClick={() => window.print()}
+                className="text-xs py-1.5 px-3"
+              >
+                Imprimir Reporte
+              </Button>
+              <button
+                type="button"
+                onClick={() => setLastClosureReport(null)}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 cursor-pointer"
+                aria-label="Ocultar reporte"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-4">
+            <div className="p-3 rounded-xl bg-slate-50 border border-slate-100">
+              <span className="block text-3xs uppercase font-bold text-slate-400">
+                Fondo Inicial
+              </span>
+              <span className="text-xs sm:text-sm font-bold font-mono text-slate-900">
+                {formatMoney(lastClosureReport.initialCash)}
+              </span>
+            </div>
+            <div className="p-3 rounded-xl bg-slate-50 border border-slate-100">
+              <span className="block text-3xs uppercase font-bold text-slate-400">
+                Saldo Sistema Esperado
+              </span>
+              <span className="text-xs sm:text-sm font-bold font-mono text-slate-900">
+                {formatMoney(lastClosureReport.expectedTotal)}
+              </span>
+            </div>
+            <div className="p-3 rounded-xl bg-slate-50 border border-slate-100">
+              <span className="block text-3xs uppercase font-bold text-slate-400">
+                Total Real Recontado
+              </span>
+              <span className="text-xs sm:text-sm font-bold font-mono text-[#00559D]">
+                {formatMoney(lastClosureReport.countedTotal)}
+              </span>
+            </div>
+            <div
+              className={`p-3 rounded-xl border ${
+                lastClosureReport.difference === 0
+                  ? "bg-emerald-50 border-emerald-200 text-emerald-900"
+                  : lastClosureReport.difference > 0
+                    ? "bg-blue-50 border-blue-200 text-blue-900"
+                    : "bg-rose-50 border-rose-200 text-rose-900"
+              }`}
+            >
+              <span className="block text-3xs uppercase font-bold opacity-75">
+                Diferencia de Caja
+              </span>
+              <span className="text-xs sm:text-sm font-extrabold font-mono">
+                {lastClosureReport.difference === 0
+                  ? "$ 0 (Exacto)"
+                  : `${lastClosureReport.difference > 0 ? "+" : "-"}${formatMoney(lastClosureReport.difference)}`}
+              </span>
             </div>
           </div>
         </Card>
+      )}
 
-        {/* Ingresos SAT */}
-        <Card className="p-5 border-l-4 border-l-secondary hover:shadow-md transition-shadow">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                Ingresos SAT
-              </p>
-              <p className="mt-2 text-2xl font-bold text-gray-900 font-mono">
-                {formatMoney(kpiData.satIncome)}
-              </p>
-              <p className="mt-1 text-xs text-orange-600 font-medium flex items-center">
-                <ArrowUpRight className="w-3.5 h-3.5 mr-0.5" /> Servicio Técnico
-              </p>
-            </div>
-            <div className="p-3 bg-orange-50 text-secondary rounded-xl">
-              <Wrench className="w-6 h-6" />
-            </div>
+      {/* 3 Tarjetas Minimalistas de Resumen de Caja */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-5">
+        <Card className="p-5 flex items-center justify-between">
+          <div>
+            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+              Total Ingresos
+            </p>
+            <p className="mt-1.5 text-xl sm:text-2xl font-extrabold text-emerald-600 font-mono">
+              + {formatMoney(summary.totalIncome)}
+            </p>
+          </div>
+          <div className="p-3 rounded-2xl bg-emerald-50 text-emerald-600 border border-emerald-200/50">
+            <ArrowUpRight className="w-6 h-6" />
           </div>
         </Card>
 
-        {/* Egresos / Ajustes */}
-        <Card className="p-5 border-l-4 border-l-red-500 hover:shadow-md transition-shadow">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                Egresos / Ajustes
-              </p>
-              <p className="mt-2 text-2xl font-bold text-red-600 font-mono">
-                {formatMoney(kpiData.expenses)}
-              </p>
-              <p className="mt-1 text-xs text-red-600 font-medium flex items-center">
-                <ArrowDownRight className="w-3.5 h-3.5 mr-0.5" /> Salidas y
-                gastos
-              </p>
-            </div>
-            <div className="p-3 bg-red-50 text-red-600 rounded-xl">
-              <TrendingDown className="w-6 h-6" />
-            </div>
+        <Card className="p-5 flex items-center justify-between">
+          <div>
+            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+              Total Egresos
+            </p>
+            <p className="mt-1.5 text-xl sm:text-2xl font-extrabold text-rose-600 font-mono">
+              - {formatMoney(summary.totalExpenses)}
+            </p>
+          </div>
+          <div className="p-3 rounded-2xl bg-rose-50 text-rose-600 border border-rose-200/50">
+            <ArrowDownRight className="w-6 h-6" />
           </div>
         </Card>
 
-        {/* Saldo Total en Caja */}
-        <Card className="p-5 border-l-4 border-l-green-600 hover:shadow-md transition-shadow">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                Saldo Total en Caja
-              </p>
-              <p className="mt-2 text-2xl font-bold text-gray-900 font-mono">
-                {formatMoney(kpiData.totalBalance)}
-              </p>
-              <p className="mt-1 text-xs text-green-700 font-medium flex items-center">
-                <CheckCircle className="w-3.5 h-3.5 mr-0.5" /> Balance operativo
-                neto
-              </p>
-            </div>
-            <div className="p-3 bg-green-50 text-green-700 rounded-xl">
-              <WalletCards className="w-6 h-6" />
-            </div>
+        <Card className="p-5 flex items-center justify-between">
+          <div>
+            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+              Balance Neto de Movimientos
+            </p>
+            <p className="mt-1.5 text-xl sm:text-2xl font-extrabold text-slate-900 font-mono">
+              {formatMoney(summary.netBalance)}
+            </p>
+          </div>
+          <div className="p-3 rounded-2xl bg-blue-50 text-[#00559D] border border-blue-200/50">
+            <WalletCards className="w-6 h-6" />
           </div>
         </Card>
       </div>
 
-      {/* 3. Tabla de Registro Histórico */}
-      <Card className="overflow-hidden shadow-xs">
-        <div className="p-4 border-b border-gray-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 bg-white">
+      {/* Card Principal: Filtro de Fechas ("Desde" y "Hasta" + Botón "Filtrar") y Tabla Minimalista */}
+      <Card className="overflow-hidden">
+        {/* Cabecera superior de la tabla con Filtro de Fechas */}
+        <div className="p-4 sm:p-5 border-b border-slate-100 bg-white flex flex-col lg:flex-row lg:items-end justify-between gap-4">
           <div>
-            <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-              <FileText className="w-5 h-5 text-primary" />
-              Registro Histórico de Movimientos
+            <h2 className="text-base sm:text-lg font-bold text-slate-900 font-heading">
+              Movimientos de Caja
             </h2>
-            <p className="text-xs text-gray-500">
-              Mostrando {filteredMovements.length} transacciones para el período
-              seleccionado
+            <p className="text-xs text-slate-400 mt-0.5">
+              Mostrando {filteredMovements.length} movimientos registrados
             </p>
           </div>
 
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-medium text-gray-500">
-              Filtrado por:{" "}
-              <strong className="text-gray-700">{branchFilter}</strong>
-            </span>
-          </div>
+          <form
+            onSubmit={handleApplyDateFilter}
+            className="flex flex-wrap sm:flex-nowrap items-end gap-3"
+          >
+            <div className="w-full sm:w-44">
+              <Label
+                htmlFor="date-from"
+                className="text-2xs uppercase tracking-wider text-slate-500 mb-1 flex items-center gap-1"
+              >
+                <Calendar className="w-3 h-3 text-primary" />
+                Desde
+              </Label>
+              <Input
+                id="date-from"
+                type="date"
+                value={dateFromInput}
+                onChange={(e) => setDateFromInput(e.target.value)}
+                className="py-2 text-xs"
+              />
+            </div>
+
+            <div className="w-full sm:w-44">
+              <Label
+                htmlFor="date-to"
+                className="text-2xs uppercase tracking-wider text-slate-500 mb-1 flex items-center gap-1"
+              >
+                <Calendar className="w-3 h-3 text-primary" />
+                Hasta
+              </Label>
+              <Input
+                id="date-to"
+                type="date"
+                value={dateToInput}
+                onChange={(e) => setDateToInput(e.target.value)}
+                className="py-2 text-xs"
+              />
+            </div>
+
+            <div className="flex items-center gap-2">
+              <Button
+                type="submit"
+                variant="primary"
+                icon={Filter}
+                className="py-2 px-4 text-xs font-bold"
+              >
+                Filtrar
+              </Button>
+              {(appliedDateRange.from || appliedDateRange.to) && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleResetDateFilter}
+                  className="py-2 px-3 text-xs"
+                  title="Limpiar filtro de fechas"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                </Button>
+              )}
+            </div>
+          </form>
         </div>
 
+        {/* Tabla Minimalista: únicamente Fecha, Concepto, Método, Monto, Usuario */}
         <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
+          <table className="min-w-full divide-y divide-slate-100">
+            <thead className="bg-slate-50/90">
               <tr>
-                <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                  Fecha/Hora
+                <th className="px-5 py-3.5 text-left text-2xs font-bold text-slate-500 uppercase tracking-wider">
+                  Fecha
                 </th>
-                <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                  Sucursal
-                </th>
-                <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                  Módulo Origen
-                </th>
-                <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                <th className="px-5 py-3.5 text-left text-2xs font-bold text-slate-500 uppercase tracking-wider">
                   Concepto
                 </th>
-                <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                  Método de Pago
+                <th className="px-5 py-3.5 text-left text-2xs font-bold text-slate-500 uppercase tracking-wider">
+                  Método
                 </th>
-                <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                  Usuario
-                </th>
-                <th className="px-5 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                <th className="px-5 py-3.5 text-right text-2xs font-bold text-slate-500 uppercase tracking-wider">
                   Monto
+                </th>
+                <th className="px-5 py-3.5 text-left text-2xs font-bold text-slate-500 uppercase tracking-wider">
+                  Usuario
                 </th>
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-gray-100">
+            <tbody className="bg-white divide-y divide-slate-100">
               {filteredMovements.map((mov) => {
                 const isExpense = mov.type === "EXPENSE"
-
                 return (
                   <tr
                     key={mov.id}
-                    className="hover:bg-gray-50/80 transition-colors"
+                    className="hover:bg-slate-50/70 transition-colors"
                   >
-                    {/* Fecha/Hora */}
-                    <td className="px-5 py-4 whitespace-nowrap text-sm text-gray-600 font-mono">
+                    {/* 1. Fecha */}
+                    <td className="px-5 py-4 whitespace-nowrap text-xs text-slate-500 font-mono">
                       {formatDateTime(mov.date)}
                     </td>
 
-                    {/* Sucursal */}
-                    <td className="px-5 py-4 whitespace-nowrap text-sm text-gray-700 font-medium">
-                      {mov.branch}
-                    </td>
-
-                    {/* Módulo Origen con Badge temático */}
-                    <td className="px-5 py-4 whitespace-nowrap">
-                      {mov.source === "VENTAS" && (
-                        <Badge variant="blue" className="gap-1">
-                          <ShoppingCart className="w-3 h-3" /> Ventas
-                        </Badge>
-                      )}
-                      {mov.source === "SAT" && (
-                        <Badge variant="orange" className="gap-1">
-                          <Wrench className="w-3 h-3" /> SAT
-                        </Badge>
-                      )}
-                      {mov.source === "MANUAL" && (
-                        <Badge variant="gray" className="gap-1">
-                          <FileText className="w-3 h-3" /> Manual
-                        </Badge>
-                      )}
-                    </td>
-
-                    {/* Concepto */}
-                    <td className="px-5 py-4 text-sm font-medium text-gray-900 max-w-xs truncate">
+                    {/* 2. Concepto */}
+                    <td className="px-5 py-4 text-xs sm:text-sm font-semibold text-slate-900">
                       {mov.concept}
                     </td>
 
-                    {/* Método de Pago */}
-                    <td className="px-5 py-4 whitespace-nowrap text-sm text-gray-600">
-                      <span className="px-2 py-1 bg-gray-100 rounded-md text-xs font-medium text-gray-700">
+                    {/* 3. Método */}
+                    <td className="px-5 py-4 whitespace-nowrap">
+                      <span className="px-2.5 py-1 bg-slate-100 rounded-full text-2xs font-semibold text-slate-700">
                         {mov.paymentMethod}
                       </span>
                     </td>
 
-                    {/* Usuario */}
-                    <td className="px-5 py-4 whitespace-nowrap text-sm text-gray-600">
-                      {mov.user}
+                    {/* 4. Monto (Verde para ingresos, Rojo/Naranja para egresos) */}
+                    <td className="px-5 py-4 whitespace-nowrap text-right">
+                      <span
+                        className={`inline-flex items-center justify-end gap-1 px-2.5 py-1 rounded-xl text-xs sm:text-sm font-extrabold font-mono ${
+                          isExpense
+                            ? "bg-rose-50 text-rose-600 border border-rose-200/60"
+                            : "bg-emerald-50 text-emerald-700 border border-emerald-200/60"
+                        }`}
+                      >
+                        {isExpense ? (
+                          <ArrowDownRight className="w-3.5 h-3.5 text-rose-500 shrink-0" />
+                        ) : (
+                          <ArrowUpRight className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                        )}
+                        {isExpense ? "-" : "+"} {formatMoney(mov.amount)}
+                      </span>
                     </td>
 
-                    {/* Monto con formato +/- */}
-                    <td
-                      className={`px-5 py-4 whitespace-nowrap text-right text-sm font-bold font-mono ${
-                        isExpense ? "text-red-600" : "text-green-700"
-                      }`}
-                    >
-                      <span className="inline-flex items-center justify-end gap-1">
-                        {isExpense ? (
-                          <ArrowDownRight className="w-4 h-4 text-red-500" />
-                        ) : (
-                          <ArrowUpRight className="w-4 h-4 text-green-600" />
-                        )}
-                        {isExpense ? "-" : "+"}
-                        {formatMoney(mov.amount)}
-                      </span>
+                    {/* 5. Usuario */}
+                    <td className="px-5 py-4 whitespace-nowrap text-xs font-medium text-slate-600">
+                      {mov.user}
                     </td>
                   </tr>
                 )
@@ -630,10 +689,11 @@ export default function CashFlow() {
               {filteredMovements.length === 0 && (
                 <tr>
                   <td
-                    colSpan={7}
-                    className="px-6 py-12 text-center text-sm text-gray-500"
+                    colSpan={5}
+                    className="px-6 py-12 text-center text-sm text-slate-500"
                   >
-                    No se registran movimientos para los filtros seleccionados.
+                    No se encontraron movimientos en el rango de fechas
+                    seleccionado.
                   </td>
                 </tr>
               )}
@@ -642,29 +702,256 @@ export default function CashFlow() {
         </div>
       </Card>
 
-      {/* 4. Modal para Nuevo Movimiento / Ajuste de Caja */}
-      {isModalOpen && (
+      {/* Modal de Cierre de Caja Diario y Reporte (Intuitivo y Habilitado para Empleados) */}
+      {isClosureModalOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-3 sm:p-6 overflow-y-auto animate-fadeIn"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="cash-closure-title"
+        >
+          <div className="bg-slate-100 text-slate-900 rounded-3xl shadow-2xl border border-slate-200 w-full max-w-3xl max-h-[92vh] flex flex-col overflow-hidden">
+            {/* Cabecera Oscura */}
+            <div className="px-6 py-4 bg-[#0B2B4C] text-white flex items-center justify-between shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-xl bg-[#F56C00] text-white">
+                  <Calculator className="w-5 h-5" />
+                </div>
+                <div>
+                  <h2
+                    id="cash-closure-title"
+                    className="text-base sm:text-lg font-bold font-heading"
+                  >
+                    Cierre de Caja Diario y Arqueo de Turno
+                  </h2>
+                  <p className="text-2xs text-blue-200/80">
+                    Operador: {user?.name || "Empleado en Turno"} • Fecha:{" "}
+                    {todayDateStr()}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsClosureModalOpen(false)}
+                className="p-2 rounded-xl text-blue-200 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+                aria-label="Cerrar modal"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form
+              onSubmit={handleConfirmClosure}
+              className="p-5 sm:p-6 overflow-y-auto space-y-5 flex-1"
+            >
+              {/* Paso 1: Monto Inicial y Totales Calculados por el Sistema */}
+              <Card className="p-4 sm:p-5 space-y-4">
+                <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                  <h3 className="text-sm font-bold text-slate-900 font-heading">
+                    1. Resumen del Turno según Sistema
+                  </h3>
+                  <Badge variant="blue">Cálculo Automático</Badge>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="initial-cash">
+                      Monto Inicial en Caja (Fondo de Cambio $)
+                    </Label>
+                    <Input
+                      id="initial-cash"
+                      type="number"
+                      min="0"
+                      value={initialCashInput}
+                      onChange={(e) => setInitialCashInput(e.target.value)}
+                      className="font-mono font-bold"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2.5">
+                    <div className="p-3 rounded-xl bg-emerald-50/70 border border-emerald-200/70">
+                      <span className="block text-3xs uppercase font-bold text-emerald-700">
+                        Ingresos del Turno
+                      </span>
+                      <span className="text-xs sm:text-sm font-extrabold font-mono text-emerald-800">
+                        + {formatMoney(summary.totalIncome)}
+                      </span>
+                    </div>
+                    <div className="p-3 rounded-xl bg-rose-50/70 border border-rose-200/70">
+                      <span className="block text-3xs uppercase font-bold text-rose-700">
+                        Egresos del Turno
+                      </span>
+                      <span className="text-xs sm:text-sm font-extrabold font-mono text-rose-800">
+                        - {formatMoney(summary.totalExpenses)}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Desglose esperado */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
+                  <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/70">
+                    <span className="block text-3xs uppercase font-bold text-slate-400">
+                      Efectivo Esperado en Cajón
+                    </span>
+                    <span className="text-sm font-extrabold font-mono text-slate-900">
+                      {formatMoney(expectedCashInDrawer)}
+                    </span>
+                  </div>
+                  <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/70">
+                    <span className="block text-3xs uppercase font-bold text-slate-400">
+                      Tarjetas / Transferencias
+                    </span>
+                    <span className="text-sm font-extrabold font-mono text-slate-900">
+                      {formatMoney(expectedDigital)}
+                    </span>
+                  </div>
+                  <div className="p-3 rounded-xl bg-blue-50 border border-blue-200">
+                    <span className="block text-3xs uppercase font-bold text-[#00559D]">
+                      Total Esperado Sistema
+                    </span>
+                    <span className="text-sm font-extrabold font-mono text-[#00559D]">
+                      {formatMoney(expectedSystemTotal)}
+                    </span>
+                  </div>
+                </div>
+              </Card>
+
+              {/* Paso 2: Recuento Real Ingresado por el Trabajador y Cálculo de Diferencias */}
+              <Card className="p-4 sm:p-5 space-y-4">
+                <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                  <h3 className="text-sm font-bold text-slate-900 font-heading">
+                    2. Recuento Real en Caja (Arqueo del Empleado)
+                  </h3>
+                  <Badge variant="orange">Recuento Físico</Badge>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <Label
+                      htmlFor="counted-cash"
+                      className="flex items-center gap-1.5"
+                    >
+                      <Banknote className="w-4 h-4 text-emerald-600" />
+                      Efectivo Real Contado en Cajón ($)
+                    </Label>
+                    <Input
+                      id="counted-cash"
+                      type="number"
+                      min="0"
+                      required
+                      value={countedCashInput}
+                      onChange={(e) => setCountedCashInput(e.target.value)}
+                      placeholder="Ingresá el efectivo físico contado..."
+                      className="font-mono font-bold"
+                    />
+                  </div>
+
+                  <div>
+                    <Label
+                      htmlFor="counted-cards"
+                      className="flex items-center gap-1.5"
+                    >
+                      <CreditCard className="w-4 h-4 text-primary" />
+                      Total Comprobantes Tarjeta / Transf. ($)
+                    </Label>
+                    <Input
+                      id="counted-cards"
+                      type="number"
+                      min="0"
+                      required
+                      value={countedCardsInput}
+                      onChange={(e) => setCountedCardsInput(e.target.value)}
+                      placeholder="Ingresá la suma de cupones/transferencias..."
+                      className="font-mono font-bold"
+                    />
+                  </div>
+                </div>
+
+                {/* Indicador automático de Diferencia (Sobrante / Faltante / Exacto) */}
+                <div
+                  className={`p-4 rounded-2xl border flex flex-col sm:flex-row sm:items-center justify-between gap-2 ${
+                    difference === 0
+                      ? "bg-emerald-50 border-emerald-200 text-emerald-900"
+                      : difference > 0
+                        ? "bg-blue-50 border-blue-200 text-blue-900"
+                        : "bg-rose-50 border-rose-200 text-rose-900"
+                  }`}
+                >
+                  <div>
+                    <p className="text-xs font-bold uppercase tracking-wide">
+                      {difference === 0
+                        ? "Arqueo Perfecto (Sin diferencias)"
+                        : difference > 0
+                          ? "Sobrante detectado en caja"
+                          : "Faltante detectado en caja"}
+                    </p>
+                    <p className="text-2xs opacity-80 mt-0.5">
+                      Recuento real: {formatMoney(countedTotal)} vs. Sistema:{" "}
+                      {formatMoney(expectedSystemTotal)}
+                    </p>
+                  </div>
+                  <div className="text-lg font-extrabold font-mono">
+                    {difference === 0
+                      ? "$ 0"
+                      : `${difference > 0 ? "+" : "-"} ${formatMoney(difference)}`}
+                  </div>
+                </div>
+
+                <div>
+                  <Label htmlFor="closure-notes">
+                    Observaciones o Justificación de Diferencias (Opcional)
+                  </Label>
+                  <Input
+                    id="closure-notes"
+                    type="text"
+                    value={closureNotes}
+                    onChange={(e) => setClosureNotes(e.target.value)}
+                    placeholder="Ej. Turno cerrado sin novedades / Cambio chico..."
+                  />
+                </div>
+              </Card>
+
+              <div className="flex justify-end gap-3 pt-1">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setIsClosureModalOpen(false)}
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  type="submit"
+                  variant="secondary"
+                  icon={FileCheck2}
+                  className="px-5 font-bold shadow-md"
+                >
+                  Confirmar Cierre y Generar Reporte Diario
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal para Registrar Nuevo Movimiento (Ingreso / Egreso) */}
+      {isNewMovModalOpen && (
         <Modal
-          title="Nuevo Movimiento / Ajuste de Caja"
-          onClose={handleCloseModal}
+          title="Registrar Movimiento de Caja"
+          onClose={() => setIsNewMovModalOpen(false)}
         >
           <form onSubmit={handleCreateMovement} className="space-y-4">
-            <p className="text-xs text-gray-500 -mt-2">
-              Asienta gastos menores, egresos de caja, ingresos manuales o
-              justificaciones de descuadre.
-            </p>
-
             {formError && (
-              <div className="p-3 bg-red-50 border-l-4 border-red-500 rounded-md flex items-start space-x-2">
-                <AlertCircle className="h-5 w-5 text-red-500 flex-shrink-0 mt-0.5" />
-                <span className="text-xs text-red-700 font-medium">
+              <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl flex items-start space-x-2">
+                <AlertCircle className="h-5 w-5 text-rose-500 shrink-0 mt-0.5" />
+                <span className="text-xs text-rose-700 font-medium">
                   {formError}
                 </span>
               </div>
             )}
 
             <div>
-              <Label htmlFor="mov-type">Tipo de Operación</Label>
+              <Label htmlFor="mov-type">Tipo de Movimiento</Label>
               <Select
                 id="mov-type"
                 value={formData.type}
@@ -675,37 +962,18 @@ export default function CashFlow() {
                   })
                 }
               >
-                <option value="EXPENSE">Egreso / Gasto operativo (-)</option>
-                <option value="INCOME">
-                  Ingreso manual extraordinario (+)
-                </option>
+                <option value="EXPENSE">Egreso / Salida (-)</option>
+                <option value="INCOME">Ingreso (+)</option>
               </Select>
             </div>
 
             <div>
-              <Label htmlFor="mov-branch">Sucursal</Label>
-              <Select
-                id="mov-branch"
-                value={formData.branch}
-                onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    branch: e.target.value as "Yofre Norte" | "Alta Córdoba",
-                  })
-                }
-              >
-                <option value="Yofre Norte">Yofre Norte</option>
-                <option value="Alta Córdoba">Alta Córdoba</option>
-              </Select>
-            </div>
-
-            <div>
-              <Label htmlFor="mov-concept">Concepto / Justificación</Label>
+              <Label htmlFor="mov-concept">Concepto *</Label>
               <Input
                 id="mov-concept"
                 type="text"
                 required
-                placeholder="Ej. Compra de librería, Faltante justificado..."
+                placeholder="Ej. Pago de cadetería, ingreso manual..."
                 value={formData.concept}
                 onChange={(e) =>
                   setFormData({ ...formData, concept: e.target.value })
@@ -715,7 +983,7 @@ export default function CashFlow() {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <Label htmlFor="mov-payment">Método de Pago</Label>
+                <Label htmlFor="mov-payment">Método</Label>
                 <Select
                   id="mov-payment"
                   value={formData.paymentMethod}
@@ -725,32 +993,29 @@ export default function CashFlow() {
                 >
                   <option value="Efectivo">Efectivo</option>
                   <option value="Transferencia">Transferencia</option>
-                  <option value="Tarjeta de Débito">Tarjeta de Débito</option>
-                  <option value="Tarjeta de Crédito">Tarjeta de Crédito</option>
-                  <option value="Mercado Pago">Mercado Pago</option>
-                  <option value="Otro">Otro</option>
+                  <option value="Tarjeta">Tarjeta</option>
                 </Select>
               </div>
 
               <div>
-                <Label htmlFor="mov-amount">Importe ($)</Label>
+                <Label htmlFor="mov-amount">Monto ($) *</Label>
                 <Input
                   id="mov-amount"
                   type="number"
-                  min="0.01"
-                  step="0.01"
+                  min="1"
                   required
-                  placeholder="0,00"
+                  placeholder="Ej. 5000"
                   value={formData.amount}
                   onChange={(e) =>
                     setFormData({ ...formData, amount: e.target.value })
                   }
+                  className="font-mono"
                 />
               </div>
             </div>
 
             <div>
-              <Label htmlFor="mov-user">Usuario Responsable</Label>
+              <Label htmlFor="mov-user">Usuario</Label>
               <Input
                 id="mov-user"
                 type="text"
@@ -762,16 +1027,16 @@ export default function CashFlow() {
               />
             </div>
 
-            <div className="pt-4 border-t border-gray-200 flex justify-end space-x-3">
+            <div className="pt-3 border-t border-slate-100 flex justify-end gap-2">
               <Button
                 type="button"
                 variant="outline"
-                onClick={handleCloseModal}
+                onClick={() => setIsNewMovModalOpen(false)}
               >
                 Cancelar
               </Button>
               <Button type="submit" variant="primary">
-                Registrar Movimiento
+                Guardar Movimiento
               </Button>
             </div>
           </form>

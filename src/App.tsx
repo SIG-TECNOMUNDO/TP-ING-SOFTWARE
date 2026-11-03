@@ -50,19 +50,12 @@ export default function App() {
         />
         <Route path="/servicio-tecnico/:id" element={<OrderDetail />} />
         <Route path="/clientes" element={<Clients />} />
+        <Route path="/caja" element={<CashFlow />} />
         <Route
           path="/administracion"
           element={
             <ProtectedRoute roles={["ADMIN"]}>
               <Admin />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/caja"
-          element={
-            <ProtectedRoute roles={["ADMIN", "SALES"]}>
-              <CashFlow />
             </ProtectedRoute>
           }
         />
