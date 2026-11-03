@@ -16,15 +16,30 @@ type BranchContextValue = {
 }
 const BranchContext = createContext<BranchContextValue | null>(null)
 
+const FALLBACK_BRANCHES: Branch[] = [
+  {
+    id: "suc-yofre",
+    name: "Sucursal Yofre Norte",
+    address: "Altolaguirre 2145",
+  },
+  {
+    id: "suc-altacba",
+    name: "Sucursal Alta Córdoba",
+    address: "Mariano Fragueiro 1980",
+  },
+]
+
 export function BranchProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth()
-  const [branches, setBranches] = useState<Branch[]>([])
+  const [branches, setBranches] = useState<Branch[]>(FALLBACK_BRANCHES)
   const [branchId, setBranchId] = useState(user?.branchId ?? "")
   useEffect(() => {
     if (!user) return
     api<{ data: Branch[] }>("/branches")
-      .then((result) => setBranches(result.data))
-      .catch(() => setBranches([]))
+      .then((result) =>
+        setBranches(result.data.length > 0 ? result.data : FALLBACK_BRANCHES),
+      )
+      .catch(() => setBranches(FALLBACK_BRANCHES))
     setBranchId(user.branchId ?? "")
   }, [user])
   const value = useMemo(
