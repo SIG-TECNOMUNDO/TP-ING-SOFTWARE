@@ -22,6 +22,7 @@ import {
 } from "lucide-react"
 import { useAuth } from "../context/AuthContext"
 import { useBranch } from "../context/BranchContext"
+import logo from "../assets/logo.png"
 
 const navItems = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard },
@@ -145,7 +146,7 @@ export default function DashboardLayout() {
         <div className="shrink-0 flex items-center justify-between h-20 px-5">
           <div className="w-full flex items-center justify-center">
             <img
-              src="/logo.png"
+              src={logo}
               alt="TecnoMundo"
               className="w-full max-w-[205px] h-auto object-contain"
             />

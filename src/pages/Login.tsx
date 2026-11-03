@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom"
 import { AlertCircle, Lock, Mail, Eye, EyeOff } from "lucide-react"
 import { Card, Button, Label } from "../components/ui"
 import { useAuth } from "../context/AuthContext"
+import logo from "../assets/logo.png"
 
 export default function Login() {
   const { login } = useAuth()
@@ -42,7 +43,7 @@ export default function Login() {
           {/* Logotipo transparente centrado */}
           <div className="flex flex-col items-center justify-center text-center mb-8">
             <img
-              src="/logo.png"
+              src={logo}
               alt="TecnoMundo"
               className="h-12 sm:h-14 w-auto object-contain mx-auto mb-3"
             />
