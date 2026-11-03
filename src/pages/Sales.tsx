@@ -1,288 +1,233 @@
 import React, { useState } from "react"
-import { Card, Button, Input, Select, Label, Badge } from "../components/ui"
+import { Card, Badge, Button } from "../components/ui"
 import {
-  Search,
   Plus,
-  Minus,
-  Trash2,
-  ShoppingBag,
+  Receipt,
+  Clock,
+  User,
   CreditCard,
+  TrendingUp,
+  ShoppingBag,
 } from "lucide-react"
+import RegisterSaleModal, {
+  RegisterSaleForm,
+  SaleRecord,
+} from "../components/RegisterSaleModal"
 
-const mockProducts = [
-  { id: "1", name: "Funda Silicona MagSafe iPhone 14", price: 15000 },
-  { id: "2", name: "Auriculares JBL Tune 510BT", price: 45000 },
+const initialSalesHistory: SaleRecord[] = [
+  {
+    id: "VTA-84910",
+    date: "Hoy",
+    time: "16:20",
+    seller: "Administrador",
+    items: [
+      {
+        id: "PRD-002",
+        barcode: "7790002",
+        name: "Funda Silicona MagSafe iPhone 14",
+        price: 15000,
+        stock: 14,
+        minStock: 5,
+        category: "Accesorios",
+        quantity: 2,
+      },
+      {
+        id: "PRD-005",
+        barcode: "7790005",
+        name: "Vidrio Templado 9D Full Glue",
+        price: 6500,
+        stock: 25,
+        minStock: 10,
+        category: "Accesorios",
+        quantity: 1,
+      },
+    ],
+    subtotal: 36500,
+    discountAmount: 3650,
+    total: 32850,
+    paymentSummary: "Efectivo (10% OFF)",
+  },
+  {
+    id: "VTA-84892",
+    date: "Hoy",
+    time: "14:45",
+    seller: "Vendedor Mostrador",
+    items: [
+      {
+        id: "PRD-003",
+        barcode: "7790003",
+        name: "Auriculares Bluetooth JBL Tune 510BT",
+        price: 52000,
+        stock: 8,
+        minStock: 4,
+        category: "Audio",
+        quantity: 1,
+      },
+    ],
+    subtotal: 52000,
+    discountAmount: 0,
+    total: 52000,
+    paymentSummary:
+      "Mixto (Efectivo: $20.000 + MP/Transf.: $32.000)",
+  },
 ]
 
 export default function Sales() {
-  const [cart, setCart] = useState(
-    mockProducts.map((p) => ({ ...p, quantity: 1 })),
-  )
-  const [paymentMethod, setPaymentMethod] = useState("efectivo")
-  const [mlSale, setMlSale] = useState({
-    operationNumber: "",
-    buyerUsername: "",
-    shippingType: "colecta",
-  })
+  const [modalOpen, setModalOpen] = useState(false)
+  const [salesHistory, setSalesHistory] =
+    useState<SaleRecord[]>(initialSalesHistory)
 
-  const updateQuantity = (id: string, delta: number) => {
-    setCart(
-      cart.map((item) => {
-        if (item.id === id) {
-          const newQ = item.quantity + delta
-          return { ...item, quantity: newQ > 0 ? newQ : 1 }
-        }
-        return item
-      }),
-    )
+  const handleSaleRegistered = (newSale: SaleRecord) => {
+    setSalesHistory((prev) => [newSale, ...prev])
   }
 
-  const removeItem = (id: string) => {
-    setCart(cart.filter((item) => item.id !== id))
-  }
-
-  const subtotal = cart.reduce(
-    (acc, item) => acc + item.price * item.quantity,
-    0,
-  )
-  const discount = paymentMethod === "efectivo" ? subtotal * 0.1 : 0
-  const total = subtotal - discount
+  const sessionTotal = salesHistory.reduce((acc, s) => acc + s.total, 0)
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-900">Registrar Venta</h1>
+      {/* Encabezado con botón prominente "+ Registrar Venta" */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 font-heading tracking-tight">
+            Módulo de Ventas
+          </h1>
+          <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
+            Terminal de facturación rápida con lector de código de barras y cobro
+            multimétodo
+          </p>
+        </div>
+
+        <div className="flex items-center gap-3">
+          <div className="hidden md:flex items-center gap-2.5 bg-white px-4 py-2 rounded-2xl border border-slate-200/80 shadow-xs">
+            <div className="p-1.5 rounded-xl bg-emerald-50 text-emerald-600">
+              <TrendingUp className="w-4 h-4" />
+            </div>
+            <div>
+              <span className="block text-3xs uppercase font-bold text-slate-400">
+                Facturado en turno ({salesHistory.length})
+              </span>
+              <span className="block text-xs font-extrabold text-slate-900 font-heading">
+                $ {sessionTotal.toLocaleString("es-AR")}
+              </span>
+            </div>
+          </div>
+
+          <Button
+            variant="secondary"
+            onClick={() => setModalOpen(true)}
+            className="text-xs sm:text-sm py-2.5 px-4 sm:px-5 font-bold shadow-md hover:shadow-lg"
+          >
+            <Plus className="w-4 h-4 mr-1.5 stroke-[2.5]" />
+            Registrar Venta
+          </Button>
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left Column - Products & Cart */}
-        <div className="lg:col-span-2 space-y-6">
-          <Card className="p-4">
-            <h2 className="text-lg font-medium text-gray-900 mb-4 flex items-center">
-              <Search className="mr-2 h-5 w-5 text-gray-500" />
-              Buscar Producto
-            </h2>
-            <div className="flex gap-2">
-              <div className="flex-1 relative">
-                <Input
-                  type="text"
-                  placeholder="Código de barras o nombre del producto..."
-                  className="w-full"
-                />
-              </div>
-              <Button>Agregar</Button>
-            </div>
-          </Card>
+      {/* Formulario Principal de Punto de Venta integrado en la vista */}
+      <RegisterSaleForm onSaleRegistered={handleSaleRegistered} />
 
-          <Card className="flex flex-col h-[400px]">
-            <div className="px-4 py-3 border-b border-gray-200 bg-gray-50 rounded-t-lg">
-              <h2 className="text-sm font-medium text-gray-700 flex items-center uppercase tracking-wider">
-                <ShoppingBag className="mr-2 h-4 w-4" />
-                Detalle de Venta
+      {/* Historial de Operaciones Recientes del Turno */}
+      <Card className="overflow-hidden">
+        <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <div className="p-2 rounded-xl bg-blue-50 text-primary border border-blue-200/50">
+              <Receipt className="w-4 h-4" />
+            </div>
+            <div>
+              <h2 className="text-sm sm:text-base font-bold text-slate-900 font-heading">
+                Últimas Ventas Registradas
               </h2>
+              <p className="text-2xs text-slate-400">
+                Comprobantes emitidos durante la sesión actual
+              </p>
             </div>
-            <div className="flex-1 overflow-y-auto p-4">
-              {cart.length === 0 ? (
-                <div className="h-full flex flex-col items-center justify-center text-gray-500">
-                  <ShoppingBag className="h-12 w-12 text-gray-300 mb-2" />
-                  <p>No hay productos en la venta</p>
-                </div>
-              ) : (
-                <ul className="divide-y divide-gray-200">
-                  {cart.map((item) => (
-                    <li
-                      key={item.id}
-                      className="py-3 flex justify-between items-center"
-                    >
-                      <div className="flex-1">
-                        <p className="text-sm font-medium text-gray-900">
-                          {item.name}
-                        </p>
-                        <p className="text-sm text-gray-500">
-                          $ {item.price.toLocaleString("es-AR")} c/u
-                        </p>
-                      </div>
-                      <div className="flex items-center space-x-4">
-                        <div className="flex items-center border border-gray-300 rounded-md">
-                          <button
-                            onClick={() => updateQuantity(item.id, -1)}
-                            className="p-1 text-gray-500 hover:bg-gray-100 rounded-l-md"
-                          >
-                            <Minus className="h-4 w-4" />
-                          </button>
-                          <span className="w-8 text-center text-sm font-medium">
-                            {item.quantity}
-                          </span>
-                          <button
-                            onClick={() => updateQuantity(item.id, 1)}
-                            className="p-1 text-gray-500 hover:bg-gray-100 rounded-r-md"
-                          >
-                            <Plus className="h-4 w-4" />
-                          </button>
-                        </div>
-                        <div className="w-24 text-right text-sm font-bold text-gray-900">
-                          ${" "}
-                          {(item.price * item.quantity).toLocaleString("es-AR")}
-                        </div>
-                        <button
-                          onClick={() => removeItem(item.id)}
-                          className="text-red-500 hover:text-red-700 p-1"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          </Card>
+          </div>
+          <Badge variant="blue">{salesHistory.length} operaciones</Badge>
         </div>
 
-        {/* Right Column - Client & Payment */}
-        <div className="space-y-6">
-          <Card className="p-4">
-            <h2 className="text-lg font-medium text-gray-900 mb-4 border-b pb-2">
-              Datos del Cliente (Opcional)
-            </h2>
-            <div className="space-y-4">
-              <div>
-                <Label>Buscar Cliente</Label>
-                <div className="flex mt-1 gap-2">
-                  <Input placeholder="DNI o Nombre..." />
-                  <Button variant="outline">
-                    <Search className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-              <div className="text-sm text-gray-500 bg-gray-50 p-3 rounded-md border border-gray-100">
-                Venta a Consumidor Final
-              </div>
-            </div>
-          </Card>
-
-          <Card className="p-4">
-            <h2 className="text-lg font-medium text-gray-900 mb-4 border-b pb-2 flex items-center">
-              <CreditCard className="mr-2 h-5 w-5 text-gray-500" />
-              Cobro
-            </h2>
-            <div className="space-y-4">
-              <div>
-                <Label>Método de Pago</Label>
-                <Select
-                  value={paymentMethod}
-                  onChange={(e) => setPaymentMethod(e.target.value)}
-                  className="mt-1"
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-slate-100">
+            <thead className="bg-slate-50/80">
+              <tr>
+                <th className="px-4 sm:px-5 py-3 text-left text-2xs font-bold text-slate-500 uppercase tracking-wider">
+                  Operación
+                </th>
+                <th className="px-4 sm:px-5 py-3 text-left text-2xs font-bold text-slate-500 uppercase tracking-wider">
+                  Artículos
+                </th>
+                <th className="px-4 sm:px-5 py-3 text-left text-2xs font-bold text-slate-500 uppercase tracking-wider">
+                  Vendedor / Hora
+                </th>
+                <th className="px-4 sm:px-5 py-3 text-left text-2xs font-bold text-slate-500 uppercase tracking-wider">
+                  Método de Pago
+                </th>
+                <th className="px-4 sm:px-5 py-3 text-right text-2xs font-bold text-slate-500 uppercase tracking-wider">
+                  Total Cobrado
+                </th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-slate-100">
+              {salesHistory.map((sale) => (
+                <tr
+                  key={sale.id}
+                  className="hover:bg-slate-50/70 transition-colors"
                 >
-                  <option value="efectivo">Efectivo (10% OFF)</option>
-                  <option value="debito">Tarjeta de Débito</option>
-                  <option value="credito">Tarjeta de Crédito</option>
-                  <option value="transferencia">Transferencia</option>
-                  <option value="mercadolibre">
-                    Venta Mercado Libre (Manual)
-                  </option>
-                </Select>
-              </div>
-
-              {paymentMethod === "credito" && (
-                <div>
-                  <Label>Cuotas</Label>
-                  <Select className="mt-1">
-                    <option>1 cuota sin interés</option>
-                    <option>3 cuotas fijas</option>
-                    <option>6 cuotas fijas</option>
-                  </Select>
-                </div>
-              )}
-
-              {paymentMethod === "mercadolibre" && (
-                <div className="rounded-lg border border-blue-100 bg-blue-50 p-4 space-y-4">
-                  <div>
-                    <p className="text-sm font-semibold text-blue-900">
-                      Datos de la venta web
-                    </p>
-                    <p className="text-xs text-blue-700 mt-1">
-                      Completá la referencia de Mercado Libre para vincular la
-                      operación.
-                    </p>
-                  </div>
-                  <div>
-                    <Label htmlFor="ml-operation">Número de Operación ML</Label>
-                    <Input
-                      id="ml-operation"
-                      type="text"
-                      placeholder="Ej. 2000005678912345"
-                      value={mlSale.operationNumber}
-                      onChange={(event) =>
-                        setMlSale((current) => ({
-                          ...current,
-                          operationNumber: event.target.value,
-                        }))
-                      }
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="ml-buyer">Usuario del Comprador</Label>
-                    <Input
-                      id="ml-buyer"
-                      type="text"
-                      placeholder="Ej. martin.perez"
-                      value={mlSale.buyerUsername}
-                      onChange={(event) =>
-                        setMlSale((current) => ({
-                          ...current,
-                          buyerUsername: event.target.value,
-                        }))
-                      }
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="ml-shipping">Tipo de Envío</Label>
-                    <Select
-                      id="ml-shipping"
-                      value={mlSale.shippingType}
-                      onChange={(event) =>
-                        setMlSale((current) => ({
-                          ...current,
-                          shippingType: event.target.value,
-                        }))
-                      }
-                    >
-                      <option value="colecta">Colecta</option>
-                      <option value="sucursal">Sucursal</option>
-                    </Select>
-                  </div>
-                </div>
-              )}
-
-              <div className="pt-4 border-t border-gray-200 space-y-2">
-                <div className="flex justify-between text-sm text-gray-600">
-                  <span>Subtotal</span>
-                  <span>$ {subtotal.toLocaleString("es-AR")}</span>
-                </div>
-                {discount > 0 && (
-                  <div className="flex justify-between text-sm text-green-600 font-medium">
-                    <span>Descuento Efectivo (10%)</span>
-                    <span>- $ {discount.toLocaleString("es-AR")}</span>
-                  </div>
-                )}
-                <div className="flex justify-between text-xl font-bold text-gray-900 pt-2 border-t border-gray-200">
-                  <span>Total</span>
-                  <span>$ {total.toLocaleString("es-AR")}</span>
-                </div>
-              </div>
-
-              <div className="pt-4">
-                <Button className="w-full py-3 text-lg h-auto">
-                  {paymentMethod === "mercadolibre"
-                    ? "Registrar Venta ML"
-                    : "Confirmar Venta"}
-                </Button>
-              </div>
-            </div>
-          </Card>
+                  <td className="px-4 sm:px-5 py-3.5 whitespace-nowrap">
+                    <span className="text-xs font-bold text-primary">
+                      {sale.id}
+                    </span>
+                  </td>
+                  <td className="px-4 sm:px-5 py-3.5">
+                    <div className="flex items-center gap-1.5">
+                      <ShoppingBag className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                      <span className="text-xs font-semibold text-slate-800">
+                        {sale.items
+                          .map((i) => `${i.quantity}x ${i.name}`)
+                          .join(", ")}
+                      </span>
+                    </div>
+                  </td>
+                  <td className="px-4 sm:px-5 py-3.5 whitespace-nowrap">
+                    <div className="flex items-center gap-3 text-2xs text-slate-500">
+                      <span className="flex items-center gap-1 font-medium text-slate-700">
+                        <User className="w-3 h-3 text-slate-400" />
+                        {sale.seller}
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <Clock className="w-3 h-3 text-slate-400" />
+                        {sale.time}
+                      </span>
+                    </div>
+                  </td>
+                  <td className="px-4 sm:px-5 py-3.5 whitespace-nowrap">
+                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-2xs font-semibold bg-slate-100 text-slate-700">
+                      <CreditCard className="w-3 h-3 text-primary" />
+                      {sale.paymentSummary}
+                    </span>
+                  </td>
+                  <td className="px-4 sm:px-5 py-3.5 whitespace-nowrap text-right">
+                    <span className="text-xs font-extrabold text-slate-900 font-heading">
+                      $ {sale.total.toLocaleString("es-AR")}
+                    </span>
+                    {sale.discountAmount > 0 && (
+                      <span className="block text-3xs font-semibold text-emerald-600">
+                        Desc: -$ {sale.discountAmount.toLocaleString("es-AR")}
+                      </span>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
-      </div>
+      </Card>
+
+      {/* Modal "+ Registrar Venta" */}
+      <RegisterSaleModal
+        isOpen={modalOpen}
+        onClose={() => setModalOpen(false)}
+        onSaleRegistered={handleSaleRegistered}
+      />
     </div>
   )
 }

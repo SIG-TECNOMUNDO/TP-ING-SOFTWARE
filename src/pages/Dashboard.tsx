@@ -1,4 +1,4 @@
-import React from "react"
+import React, { useState } from "react"
 import { Card, Badge, Button } from "../components/ui"
 import {
   TrendingUp,
@@ -9,39 +9,12 @@ import {
   MoreVertical,
   Download,
   Plus,
+  ShoppingCart,
+  AlertOctagon,
+  PackagePlus,
 } from "lucide-react"
 import { Link } from "react-router-dom"
-
-const stats = [
-  {
-    name: "Ventas de hoy",
-    value: "$ 1.240.500",
-    icon: TrendingUp,
-    color: "text-blue-600",
-    bg: "bg-blue-50 border border-blue-200/50",
-  },
-  {
-    name: "Órdenes Pendientes",
-    value: "24",
-    icon: Wrench,
-    color: "text-orange-600",
-    bg: "bg-orange-50 border border-orange-200/50",
-  },
-  {
-    name: "Reparaciones Listas",
-    value: "12",
-    icon: CheckCircle,
-    color: "text-emerald-600",
-    bg: "bg-emerald-50 border border-emerald-200/50",
-  },
-  {
-    name: "Alertas de Stock",
-    value: "8",
-    icon: AlertTriangle,
-    color: "text-rose-600",
-    bg: "bg-rose-50 border border-rose-200/50",
-  },
-]
+import RegisterSaleModal, { SaleRecord } from "../components/RegisterSaleModal"
 
 const recentOrders = [
   {
@@ -81,6 +54,37 @@ const recentOrders = [
   },
 ]
 
+const stockAlerts = [
+  {
+    sku: "PRD-004",
+    product: "Batería Original Motorola G22",
+    stock: 0,
+    limit: 3,
+    category: "Repuestos",
+  },
+  {
+    sku: "PRD-011",
+    product: "Funda Silicona Moto G52",
+    stock: 0,
+    limit: 10,
+    category: "Accesorios",
+  },
+  {
+    sku: "PRD-001",
+    product: "Módulo Display iPhone 13 Pro OLED",
+    stock: 2,
+    limit: 5,
+    category: "Repuestos",
+  },
+  {
+    sku: "PRD-006",
+    product: "Pin de Carga Tipo C Samsung A52",
+    stock: 3,
+    limit: 10,
+    category: "Repuestos",
+  },
+]
+
 const getStatusBadge = (status: string) => {
   switch (status) {
     case "Ingresado":
@@ -99,9 +103,51 @@ const getStatusBadge = (status: string) => {
 }
 
 export default function Dashboard() {
+  const [saleModalOpen, setSaleModalOpen] = useState(false)
+  const [todaySalesTotal, setTodaySalesTotal] = useState(1240500)
+
+  const handleSaleRegistered = (sale: SaleRecord) => {
+    setTodaySalesTotal((prev) => prev + sale.total)
+  }
+
+  const stats = [
+    {
+      name: "Ventas de hoy",
+      value: `$ ${todaySalesTotal.toLocaleString("es-AR")}`,
+      subtitle: "+12% vs. ayer",
+      icon: TrendingUp,
+      color: "text-blue-600",
+      bg: "bg-blue-50 border border-blue-200/50",
+    },
+    {
+      name: "Órdenes Pendientes",
+      value: "24",
+      subtitle: "8 en taller activo",
+      icon: Wrench,
+      color: "text-orange-600",
+      bg: "bg-orange-50 border border-orange-200/50",
+    },
+    {
+      name: "Reparaciones Listas",
+      value: "12",
+      subtitle: "Pendientes de retiro",
+      icon: CheckCircle,
+      color: "text-emerald-600",
+      bg: "bg-emerald-50 border border-emerald-200/50",
+    },
+    {
+      name: "Alertas de Stock",
+      value: `${stockAlerts.length}`,
+      subtitle: "2 agotados críticos",
+      icon: AlertTriangle,
+      color: "text-rose-600",
+      bg: "bg-rose-50 border border-rose-200/50",
+    },
+  ]
+
   return (
     <div className="space-y-6">
-      {/* Encabezado responsive */}
+      {/* Encabezado responsive con botón prominente "+ Registrar Venta" */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 font-heading tracking-tight">
@@ -112,36 +158,55 @@ export default function Dashboard() {
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2.5 sm:gap-3">
-          <Button variant="outline" className="text-xs py-2 px-3 sm:px-4 sm:py-2.5">
+          <Button
+            variant="outline"
+            className="text-xs py-2.5 px-3.5 sm:px-4 bg-white"
+          >
             <Download className="w-3.5 h-3.5 mr-1.5" />
             Descargar Reporte
           </Button>
-          <Link to="/servicio-tecnico/nueva" className="flex-1 sm:flex-initial">
-            <Button className="w-full text-xs py-2 px-3 sm:px-4 sm:py-2.5">
-              <Plus className="w-4 h-4 mr-1.5" />
+          <Link to="/servicio-tecnico/nueva">
+            <Button
+              variant="outline"
+              className="text-xs py-2.5 px-3.5 sm:px-4 bg-white border-primary/30 text-primary hover:bg-blue-50/50"
+            >
+              <Wrench className="w-3.5 h-3.5 mr-1.5" />
               Nueva Orden
             </Button>
           </Link>
+          <Button
+            variant="secondary"
+            onClick={() => setSaleModalOpen(true)}
+            className="text-xs sm:text-sm py-2.5 px-4 sm:px-5 font-bold shadow-md hover:shadow-lg"
+          >
+            <Plus className="w-4 h-4 mr-1.5 stroke-[2.5]" />
+            Registrar Venta
+          </Button>
         </div>
       </div>
 
-      {/* Grid de Métricas / Estadísticas */}
+      {/* Grid de Métricas / Estadísticas en tarjetas blancas con sombras suaves */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
         {stats.map((item) => (
           <Card
             key={item.name}
-            className="p-4 sm:p-5 flex items-center hover:shadow-md transition-shadow"
+            className="p-4 sm:p-5 flex items-center justify-between hover:shadow-md transition-all"
           >
-            <div className={`p-3 rounded-2xl ${item.bg} shrink-0`}>
-              <item.icon className={`w-5 h-5 sm:w-6 sm:h-6 ${item.color}`} />
-            </div>
-            <div className="ml-4 min-w-0">
-              <p className="text-xs sm:text-sm font-medium text-slate-500 truncate">
-                {item.name}
-              </p>
-              <h3 className="text-lg sm:text-xl font-bold text-slate-900 truncate font-heading mt-0.5">
-                {item.value}
-              </h3>
+            <div className="flex items-center min-w-0">
+              <div className={`p-3 rounded-2xl ${item.bg} shrink-0`}>
+                <item.icon className={`w-5 h-5 sm:w-6 sm:h-6 ${item.color}`} />
+              </div>
+              <div className="ml-3.5 min-w-0">
+                <p className="text-xs font-medium text-slate-500 truncate">
+                  {item.name}
+                </p>
+                <h3 className="text-lg sm:text-xl font-bold text-slate-900 truncate font-heading mt-0.5">
+                  {item.value}
+                </h3>
+                <p className="text-3xs text-slate-400 font-medium mt-0.5 truncate">
+                  {item.subtitle}
+                </p>
+              </div>
             </div>
           </Card>
         ))}
@@ -156,7 +221,7 @@ export default function Dashboard() {
                 Últimas Órdenes de Trabajo
               </h2>
               <p className="text-2xs sm:text-xs text-slate-400">
-                Seguimiento de reparaciones activas
+                Seguimiento de reparaciones activas en sucursal
               </p>
             </div>
             <Link
@@ -167,7 +232,7 @@ export default function Dashboard() {
               <ArrowRight className="ml-1 w-3.5 h-3.5 transition-transform group-hover:translate-x-0.5" />
             </Link>
           </div>
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto flex-1">
             <table className="min-w-full divide-y divide-slate-100">
               <thead className="bg-slate-50/80">
                 <tr>
@@ -220,63 +285,143 @@ export default function Dashboard() {
               </tbody>
             </table>
           </div>
+          <div className="px-5 py-3.5 bg-slate-50/60 border-t border-slate-100 flex items-center justify-between">
+            <span className="text-2xs text-slate-500">
+              Mostrando las 5 órdenes más recientes
+            </span>
+            <button
+              type="button"
+              onClick={() => setSaleModalOpen(true)}
+              className="text-xs font-bold text-[#F56C00] hover:text-[#e65c00] flex items-center gap-1 cursor-pointer"
+            >
+              <ShoppingCart className="w-3.5 h-3.5" />
+              Facturar repuesto o venta rápida →
+            </button>
+          </div>
         </Card>
 
-        {/* Alertas de Stock */}
+        {/* Apartado Mejorado: Alertas de Stock con Colores Semánticos de Urgencia */}
         <Card className="flex flex-col overflow-hidden">
-          <div className="px-5 py-4 border-b border-slate-100">
-            <h2 className="text-base sm:text-lg font-bold text-slate-900 font-heading">
-              Alertas de Stock
-            </h2>
-            <p className="text-2xs sm:text-xs text-slate-400">
-              Artículos por debajo del punto de reorden
-            </p>
+          <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+            <div>
+              <div className="flex items-center gap-2">
+                <h2 className="text-base sm:text-lg font-bold text-slate-900 font-heading">
+                  Alertas de Stock
+                </h2>
+                <span className="px-2 py-0.5 text-3xs font-bold rounded-full bg-rose-100 text-rose-700 border border-rose-200">
+                  Urgente
+                </span>
+              </div>
+              <p className="text-2xs sm:text-xs text-slate-400 mt-0.5">
+                Artículos críticos o agotados por reponer
+              </p>
+            </div>
           </div>
-          <div className="p-4 sm:p-5 flex-1 flex flex-col justify-between">
-            <ul className="space-y-3.5">
-              {[
-                { product: "Módulo Display iPhone 11", stock: 2, limit: 5 },
-                { product: "Batería Samsung S20", stock: 1, limit: 3 },
-                { product: "Funda Silicona Moto G52", stock: 0, limit: 10 },
-                { product: "Pin de Carga Tipo C", stock: 4, limit: 20 },
-              ].map((item, i) => (
-                <li
-                  key={i}
-                  className="flex items-center justify-between p-2.5 rounded-xl bg-slate-50/70 border border-slate-100"
-                >
-                  <div className="flex items-start min-w-0 mr-2">
-                    <div className="mt-0.5 shrink-0">
-                      <AlertTriangle
-                        className={`w-4 h-4 ${
-                          item.stock === 0 ? "text-rose-500" : "text-amber-500"
+
+          <div className="p-4 sm:p-5 flex-1 flex flex-col justify-between space-y-4">
+            <ul className="space-y-3">
+              {stockAlerts.map((item) => {
+                const isOut = item.stock === 0
+                const percentage = Math.min(
+                  100,
+                  Math.round((item.stock / item.limit) * 100),
+                )
+                return (
+                  <li
+                    key={item.sku}
+                    className={`p-3 rounded-2xl border transition-all ${
+                      isOut
+                        ? "bg-rose-50/60 border-rose-200/80 hover:border-rose-300"
+                        : "bg-orange-50/50 border-orange-200/70 hover:border-orange-300"
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-start min-w-0">
+                        <div
+                          className={`p-2 rounded-xl shrink-0 mt-0.5 ${
+                            isOut
+                              ? "bg-rose-100 text-rose-600"
+                              : "bg-orange-100 text-[#F56C00]"
+                          }`}
+                        >
+                          {isOut ? (
+                            <AlertOctagon className="w-4 h-4" />
+                          ) : (
+                            <AlertTriangle className="w-4 h-4" />
+                          )}
+                        </div>
+                        <div className="ml-2.5 min-w-0">
+                          <p className="text-xs font-bold text-slate-900 truncate">
+                            {item.product}
+                          </p>
+                          <div className="flex items-center gap-2 mt-0.5">
+                            <span className="text-3xs font-mono font-semibold text-slate-500">
+                              {item.sku}
+                            </span>
+                            <span className="text-3xs text-slate-400">•</span>
+                            <span className="text-3xs text-slate-500">
+                              Mínimo: {item.limit} un.
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <span
+                        className={`shrink-0 px-2.5 py-1 rounded-full text-3xs font-bold border ${
+                          isOut
+                            ? "bg-rose-600 text-white border-rose-700 shadow-2xs"
+                            : "bg-orange-500 text-white border-orange-600 shadow-2xs"
                         }`}
-                      />
+                      >
+                        {isOut ? "AGOTADO" : `${item.stock} un.`}
+                      </span>
                     </div>
-                    <div className="ml-2.5 min-w-0">
-                      <p className="text-xs font-semibold text-slate-800 truncate">
-                        {item.product}
-                      </p>
-                      <p className="text-3xs sm:text-2xs text-slate-400">
-                        Mínimo sugerido: {item.limit} un.
-                      </p>
+
+                    {/* Barra de nivel de stock semántica */}
+                    <div className="mt-2.5 flex items-center gap-2">
+                      <div className="flex-1 h-1.5 bg-white/80 rounded-full overflow-hidden border border-slate-200/60">
+                        <div
+                          className={`h-full rounded-full ${
+                            isOut ? "bg-rose-500" : "bg-[#F56C00]"
+                          }`}
+                          style={{ width: `${ isOut ? 6 : percentage }%` }}
+                        />
+                      </div>
+                      <Link
+                        to="/inventario"
+                        className={`text-3xs font-bold shrink-0 hover:underline ${
+                          isOut ? "text-rose-700" : "text-orange-700"
+                        }`}
+                      >
+                        Reponer →
+                      </Link>
                     </div>
-                  </div>
-                  <Badge variant={item.stock === 0 ? "red" : "orange"} className="shrink-0 text-3xs sm:text-xs">
-                    {item.stock} un.
-                  </Badge>
-                </li>
-              ))}
+                  </li>
+                )
+              })}
             </ul>
-            <div className="mt-5 pt-3 border-t border-slate-100">
-              <Link to="/inventario">
-                <Button variant="outline" className="w-full text-xs py-2">
-                  Gestionar Inventario
+
+            <div className="pt-3 border-t border-slate-100 flex flex-col sm:flex-row gap-2">
+              <Link to="/inventario" className="flex-1">
+                <Button
+                  variant="primary"
+                  className="w-full text-xs py-2.5 font-semibold"
+                >
+                  <PackagePlus className="w-3.5 h-3.5 mr-1.5" />
+                  Gestionar Stock
                 </Button>
               </Link>
             </div>
           </div>
         </Card>
       </div>
+
+      {/* Modal Avanzado de Registrar Venta */}
+      <RegisterSaleModal
+        isOpen={saleModalOpen}
+        onClose={() => setSaleModalOpen(false)}
+        onSaleRegistered={handleSaleRegistered}
+      />
     </div>
   )
 }

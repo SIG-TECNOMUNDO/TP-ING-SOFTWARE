@@ -1,4 +1,4 @@
-import React, { useState } from "react"
+import React, { useState, useRef, useEffect } from "react"
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom"
 import {
   LayoutDashboard,
@@ -14,6 +14,11 @@ import {
   Search,
   MapPin,
   WalletCards,
+  AlertTriangle,
+  CheckCircle2,
+  AlertOctagon,
+  Check,
+  Clock,
 } from "lucide-react"
 import { useAuth } from "../context/AuthContext"
 import { useBranch } from "../context/BranchContext"
@@ -28,13 +33,80 @@ const navItems = [
   { to: "/administracion", label: "Administración", icon: Settings },
 ]
 
+interface NotificationItem {
+  id: string
+  title: string
+  description: string
+  time: string
+  type: "critical" | "warning" | "success"
+  read: boolean
+  link: string
+}
+
+const initialNotifications: NotificationItem[] = [
+  {
+    id: "notif-1",
+    title: "Stock Agotado: Batería Motorola G22",
+    description: "Quedan 0 unidades en Casa Central (Mínimo: 3 un.)",
+    time: "Hace 5 min",
+    type: "critical",
+    read: false,
+    link: "/inventario",
+  },
+  {
+    id: "notif-2",
+    title: "Alerta de Stock: Módulo iPhone 13",
+    description: "Quedan solo 2 unidades disponibles (Mínimo: 5 un.)",
+    time: "Hace 18 min",
+    type: "warning",
+    read: false,
+    link: "/inventario",
+  },
+  {
+    id: "notif-3",
+    title: "Orden OT-10451 Lista para Entrega",
+    description: "iPhone 13 Pro de Laura Gómez finalizado por taller",
+    time: "Hace 42 min",
+    type: "success",
+    read: false,
+    link: "/servicio-tecnico",
+  },
+  {
+    id: "notif-4",
+    title: "Stock Crítico: Pin de Carga Tipo C",
+    description: "Quedan 4 unidades sobre un punto de reorden de 20 un.",
+    time: "Hace 2 horas",
+    type: "warning",
+    read: true,
+    link: "/inventario",
+  },
+]
+
 export default function DashboardLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false)
+  const [notificationsOpen, setNotificationsOpen] = useState(false)
+  const [notifications, setNotifications] =
+    useState<NotificationItem[]>(initialNotifications)
+
+  const notificationRef = useRef<HTMLDivElement>(null)
   const location = useLocation()
   const navigate = useNavigate()
   const { user, logout } = useAuth()
   const { branches, branchId, setBranchId } = useBranch()
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        notificationRef.current &&
+        !notificationRef.current.contains(event.target as Node)
+      ) {
+        setNotificationsOpen(false)
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside)
+    return () => document.removeEventListener("mousedown", handleClickOutside)
+  }, [])
 
   if (location.pathname === "/login") {
     return <Outlet />
@@ -43,6 +115,20 @@ export default function DashboardLayout() {
   const handleLogout = async () => {
     await logout()
     navigate("/login")
+  }
+
+  const unreadCount = notifications.filter((n) => !n.read).length
+
+  const markAllAsRead = () => {
+    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })))
+  }
+
+  const handleNotificationClick = (notif: NotificationItem) => {
+    setNotifications((prev) =>
+      prev.map((n) => (n.id === notif.id ? { ...n, read: true } : n)),
+    )
+    setNotificationsOpen(false)
+    navigate(notif.link)
   }
 
   const userInitial = user?.name ? user.name.charAt(0).toUpperCase() : "U"
@@ -188,14 +274,115 @@ export default function DashboardLayout() {
                 <Search className="h-4 w-4" />
               </button>
 
-              {/* Notificaciones */}
-              <button
-                className="p-2.5 rounded-2xl bg-white/10 hover:bg-white/15 border border-white/15 text-slate-100 transition-colors relative cursor-pointer"
-                aria-label="Notificaciones"
-              >
-                <Bell className="h-4 w-4" />
-                <span className="absolute top-2 right-2 block h-2 w-2 rounded-full bg-[#F56C00] ring-2 ring-[#0B2B4C]"></span>
-              </button>
+              {/* Notificaciones funcionales con Dropdown */}
+              <div className="relative" ref={notificationRef}>
+                <button
+                  onClick={() => setNotificationsOpen((prev) => !prev)}
+                  className="p-2.5 rounded-2xl bg-white/10 hover:bg-white/15 border border-white/15 text-slate-100 transition-colors relative cursor-pointer"
+                  aria-label="Notificaciones"
+                  aria-expanded={notificationsOpen}
+                >
+                  <Bell className="h-4 w-4" />
+                  {unreadCount > 0 && (
+                    <span className="absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-[#F56C00] px-1 text-[10px] font-bold text-white ring-2 ring-[#0B2B4C]">
+                      {unreadCount}
+                    </span>
+                  )}
+                </button>
+
+                {notificationsOpen && (
+                  <div className="absolute right-0 mt-2.5 w-80 sm:w-96 rounded-2xl bg-white text-slate-900 shadow-2xl border border-slate-200 overflow-hidden z-50 animate-fadeIn">
+                    <div className="px-4 py-3.5 bg-slate-50 border-b border-slate-100 flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <h3 className="text-xs font-bold text-slate-900 font-heading">
+                          Notificaciones
+                        </h3>
+                        {unreadCount > 0 && (
+                          <span className="px-2 py-0.5 text-3xs font-bold rounded-full bg-orange-100 text-[#F56C00]">
+                            {unreadCount} nuevas
+                          </span>
+                        )}
+                      </div>
+                      {unreadCount > 0 && (
+                        <button
+                          onClick={markAllAsRead}
+                          className="text-2xs font-semibold text-primary hover:text-primary-dark flex items-center gap-1 cursor-pointer"
+                        >
+                          <Check className="w-3 h-3" />
+                          Marcar leídas
+                        </button>
+                      )}
+                    </div>
+
+                    <div className="max-h-80 overflow-y-auto divide-y divide-slate-100">
+                      {notifications.map((notif) => (
+                        <button
+                          key={notif.id}
+                          type="button"
+                          onClick={() => handleNotificationClick(notif)}
+                          className={`w-full text-left px-4 py-3 hover:bg-slate-50 transition-colors flex items-start gap-3 cursor-pointer ${
+                            !notif.read ? "bg-blue-50/40" : "bg-white"
+                          }`}
+                        >
+                          <div
+                            className={`mt-0.5 p-2 rounded-xl shrink-0 ${
+                              notif.type === "critical"
+                                ? "bg-rose-50 text-rose-600 border border-rose-200/60"
+                                : notif.type === "warning"
+                                  ? "bg-amber-50 text-amber-600 border border-amber-200/60"
+                                  : "bg-emerald-50 text-emerald-600 border border-emerald-200/60"
+                            }`}
+                          >
+                            {notif.type === "critical" ? (
+                              <AlertOctagon className="w-4 h-4" />
+                            ) : notif.type === "warning" ? (
+                              <AlertTriangle className="w-4 h-4" />
+                            ) : (
+                              <CheckCircle2 className="w-4 h-4" />
+                            )}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between gap-2">
+                              <p
+                                className={`text-xs truncate ${
+                                  !notif.read
+                                    ? "font-bold text-slate-900"
+                                    : "font-semibold text-slate-700"
+                                }`}
+                              >
+                                {notif.title}
+                              </p>
+                              {!notif.read && (
+                                <span className="w-2 h-2 rounded-full bg-[#F56C00] shrink-0" />
+                              )}
+                            </div>
+                            <p className="text-2xs text-slate-500 mt-0.5 line-clamp-2">
+                              {notif.description}
+                            </p>
+                            <p className="text-3xs text-slate-400 mt-1 flex items-center gap-1">
+                              <Clock className="w-2.5 h-2.5" />
+                              {notif.time}
+                            </p>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+
+                    <div className="px-4 py-2.5 bg-slate-50 border-t border-slate-100 text-center">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setNotificationsOpen(false)
+                          navigate("/inventario")
+                        }}
+                        className="text-2xs font-bold text-primary hover:text-primary-dark cursor-pointer"
+                      >
+                        Ver todas las alertas de inventario →
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
 
               {/* Perfil de usuario */}
               <div className="flex items-center bg-white/10 rounded-2xl p-1.5 sm:px-3 sm:py-1.5 border border-white/15">
