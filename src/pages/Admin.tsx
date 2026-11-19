@@ -1,5 +1,14 @@
 import React, { useState } from "react"
-import { Card, Button, Badge, Input, Label, Select } from "../components/ui"
+import {
+  Card,
+  Button,
+  Badge,
+  Input,
+  Label,
+  Select,
+  TableScrollContainer,
+  TablePagination,
+} from "../components/ui"
 import Modal from "../components/Modal"
 import {
   UserPlus,
@@ -118,6 +127,8 @@ const initialBranches: BranchConfig[] = [
 export default function Admin() {
   // 1. Estado para Usuarios
   const [users, setUsers] = useState<SystemUser[]>(initialUsers)
+  const [usersPage, setUsersPage] = useState(1)
+  const PAGE_SIZE = 10
   const [isUserModalOpen, setIsUserModalOpen] = useState(false)
   const [toastMsg, setToastMsg] = useState<string | null>(null)
   const [formData, setFormData] = useState({
@@ -306,6 +317,13 @@ export default function Admin() {
     }
   }
 
+  const totalUserPages = Math.max(1, Math.ceil(users.length / PAGE_SIZE))
+  const safeUsersPage = Math.min(usersPage, totalUserPages)
+  const paginatedUsers = users.slice(
+    (safeUsersPage - 1) * PAGE_SIZE,
+    safeUsersPage * PAGE_SIZE,
+  )
+
   return (
     <div className="space-y-6">
       {/* Encabezado */}
@@ -335,9 +353,9 @@ export default function Admin() {
         </div>
       )}
 
-      {/* Grid Superior de Tarjetas: 1. Usuarios y Roles + 2. Sucursales */}
-      <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
-        {/* TARJETA 1: USUARIOS Y PERMISOS (7 columnas) */}
+      {/* Grid Superior de Tarjetas: 1. Usuarios y Roles (~70%) + 2. Sucursales (~30% compacta) */}
+      <div className="grid grid-cols-1 xl:grid-cols-10 gap-5 items-start">
+        {/* TARJETA 1: USUARIOS Y PERMISOS (7 de 10 columnas = 70%) */}
         <Card className="xl:col-span-7 flex flex-col overflow-hidden">
           <div className="p-5 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 bg-white">
             <div className="flex items-center gap-3">
@@ -363,7 +381,7 @@ export default function Admin() {
             </Button>
           </div>
 
-          <div className="overflow-x-auto flex-1">
+          <TableScrollContainer className="flex-1">
             <table className="min-w-full divide-y divide-slate-100">
               <thead className="bg-slate-50/90">
                 <tr>
@@ -382,7 +400,7 @@ export default function Admin() {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-slate-100">
-                {users.map((u) => (
+                {paginatedUsers.map((u) => (
                   <tr
                     key={u.id}
                     className="hover:bg-slate-50/70 transition-colors"
@@ -426,71 +444,79 @@ export default function Admin() {
                 ))}
               </tbody>
             </table>
-          </div>
+          </TableScrollContainer>
+
+          <TablePagination
+            currentPage={safeUsersPage}
+            totalItems={users.length}
+            pageSize={PAGE_SIZE}
+            onPageChange={setUsersPage}
+            itemLabel="usuarios"
+          />
         </Card>
 
-        {/* TARJETA 2: SUCURSALES (5 columnas) */}
-        <Card className="xl:col-span-5 flex flex-col justify-between overflow-hidden">
-          <div>
-            <div className="p-5 border-b border-slate-100 flex items-center justify-between gap-3 bg-white">
-              <div className="flex items-center gap-3">
-                <div className="p-2.5 bg-orange-50 text-[#F56C00] rounded-2xl border border-orange-200/50">
-                  <Building2 className="h-5 w-5" />
+        {/* TARJETA 2: SUCURSALES (3 de 10 columnas = 30%, formato compacto) */}
+        <Card className="xl:col-span-3 flex flex-col overflow-hidden">
+          <div className="px-4 py-3.5 border-b border-slate-100 flex items-center justify-between gap-2 bg-white">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="p-2 bg-orange-50 text-[#F56C00] rounded-xl border border-orange-200/50 shrink-0">
+                <Building2 className="h-4 w-4" />
+              </div>
+              <div className="min-w-0">
+                <h2 className="text-sm sm:text-base font-bold text-slate-900 font-heading truncate">
+                  2. Sucursales
+                </h2>
+                <p className="text-2xs text-slate-400 truncate">
+                  Puntos de venta y laboratorios
+                </p>
+              </div>
+            </div>
+
+            <Button
+              variant="outline"
+              icon={Plus}
+              onClick={() => setIsBranchModalOpen(true)}
+              className="py-1.5 px-2.5 text-2xs font-bold shrink-0"
+            >
+              Nueva Sucursal
+            </Button>
+          </div>
+
+          <div className="p-3.5 space-y-2.5">
+            {branches.map((b) => (
+              <div
+                key={b.id}
+                className="p-3 rounded-xl bg-slate-50 border border-slate-200/80 space-y-1.5 hover:border-slate-300 transition-colors"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <span className="text-2xs font-mono font-bold text-primary shrink-0">
+                      {b.id}
+                    </span>
+                    <h3 className="text-xs sm:text-sm font-bold text-slate-900 font-heading truncate">
+                      {b.name}
+                    </h3>
+                  </div>
+                  <Badge variant="green" className="text-3xs px-2 py-0.5 shrink-0">
+                    {b.status}
+                  </Badge>
                 </div>
-                <div>
-                  <h2 className="text-base sm:text-lg font-bold text-slate-900 font-heading">
-                    2. Sucursales
-                  </h2>
-                  <p className="text-2xs sm:text-xs text-slate-400">
-                    Puntos de venta y laboratorios técnicos
+
+                <div className="space-y-0.5 text-2xs text-slate-600">
+                  <p className="flex items-center gap-1.5 truncate">
+                    <MapPin className="w-3 h-3 text-[#F56C00] shrink-0" />
+                    <span className="truncate">{b.address}</span>
+                  </p>
+                  <p className="flex items-center gap-1.5 truncate">
+                    <Phone className="w-3 h-3 text-primary shrink-0" />
+                    <span className="truncate">
+                      {b.phone} • Encargado:{" "}
+                      <strong className="text-slate-800">{b.manager}</strong>
+                    </span>
                   </p>
                 </div>
               </div>
-
-              <Button
-                variant="outline"
-                icon={Plus}
-                onClick={() => setIsBranchModalOpen(true)}
-                className="py-2 px-3 text-xs font-bold"
-              >
-                Nueva Sucursal
-              </Button>
-            </div>
-
-            <div className="p-5 space-y-3.5">
-              {branches.map((b) => (
-                <div
-                  key={b.id}
-                  className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-2 hover:border-slate-300 transition-colors"
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-mono font-bold text-primary">
-                        {b.id}
-                      </span>
-                      <h3 className="text-sm font-bold text-slate-900 font-heading">
-                        {b.name}
-                      </h3>
-                    </div>
-                    <Badge variant="green">{b.status}</Badge>
-                  </div>
-
-                  <div className="space-y-1 text-xs text-slate-600">
-                    <p className="flex items-center gap-1.5">
-                      <MapPin className="w-3.5 h-3.5 text-[#F56C00] shrink-0" />
-                      <span>{b.address}</span>
-                    </p>
-                    <p className="flex items-center gap-1.5">
-                      <Phone className="w-3.5 h-3.5 text-primary shrink-0" />
-                      <span>
-                        {b.phone} • Encargado:{" "}
-                        <strong className="text-slate-800">{b.manager}</strong>
-                      </span>
-                    </p>
-                  </div>
-                </div>
-              ))}
-            </div>
+            ))}
           </div>
         </Card>
       </div>

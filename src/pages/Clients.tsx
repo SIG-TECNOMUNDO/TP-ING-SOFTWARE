@@ -1,5 +1,13 @@
 import React, { useState } from "react"
-import { Card, Button, Input, Badge, Label } from "../components/ui"
+import {
+  Card,
+  Button,
+  Input,
+  Badge,
+  Label,
+  TableScrollContainer,
+  TablePagination,
+} from "../components/ui"
 import Modal from "../components/Modal"
 import {
   Search,
@@ -351,9 +359,9 @@ const initialClients: ClientProfile[] = [
 export default function Clients() {
   const [clients, setClients] = useState<ClientProfile[]>(initialClients)
   const [searchQuery, setSearchQuery] = useState("")
-  const [selectedClientId, setSelectedClientId] = useState<string>(
-    initialClients[0].id,
-  )
+  const [currentPage, setCurrentPage] = useState(1)
+  const PAGE_SIZE = 10
+  const [selectedClientId, setSelectedClientId] = useState<string | null>(null)
   const [historyTab, setHistoryTab] = useState<"repairs" | "purchases">(
     "repairs",
   )
@@ -371,6 +379,17 @@ export default function Clients() {
     branch: "Alta Córdoba",
   })
   const [toastMessage, setToastMessage] = useState<string | null>(null)
+
+  React.useEffect(() => {
+    if (!selectedClientId || clientModalMode) return
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setSelectedClientId(null)
+      }
+    }
+    window.addEventListener("keydown", handleKeyDown)
+    return () => window.removeEventListener("keydown", handleKeyDown)
+  }, [selectedClientId, clientModalMode])
 
   const triggerToast = (msg: string) => {
     setToastMessage(msg)
@@ -391,10 +410,16 @@ export default function Clients() {
     )
   })
 
-  const selectedClient =
-    clients.find((c) => c.id === selectedClientId) ||
-    filteredClients[0] ||
-    null
+  const totalPages = Math.max(1, Math.ceil(filteredClients.length / PAGE_SIZE))
+  const safePage = Math.min(currentPage, totalPages)
+  const paginatedClients = filteredClients.slice(
+    (safePage - 1) * PAGE_SIZE,
+    safePage * PAGE_SIZE,
+  )
+
+  const selectedClient = selectedClientId
+    ? clients.find((c) => c.id === selectedClientId) || null
+    : null
 
   const openCreateClientModal = () => {
     setClientForm({
@@ -483,8 +508,8 @@ export default function Clients() {
             Clientes
           </h1>
           <p className="mt-0.5 text-xs sm:text-sm text-slate-500">
-            Seleccioná un cliente del listado izquierdo para consultar y editar
-            su ficha e historial a la derecha
+            Hacé clic sobre cualquier cliente del listado para abrir su ficha
+            completa e historial
           </p>
         </div>
         <Button
@@ -496,356 +521,355 @@ export default function Clients() {
         </Button>
       </div>
 
-      {/* Layout Master-Detail (Pantalla dividida en 2 columnas alineadas: 55% Izquierda / 45% Derecha) */}
-      <div className="flex flex-col lg:flex-row gap-6 items-stretch">
-        {/* COLUMNA IZQUIERDA (55% de ancho): Buscador arriba + Tabla "Listado de Clientes" con scroll interno */}
-        <div className="w-full lg:w-[55%] flex flex-col">
-          <Card className="flex flex-col overflow-hidden h-[580px]">
-            {/* Barra de búsqueda integrada en la parte superior */}
-            <div className="p-4 border-b border-slate-100 bg-white shrink-0 space-y-3">
-              <div className="flex items-center justify-between">
-                <h2 className="text-base sm:text-lg font-bold text-slate-900 font-heading">
-                  Listado de Clientes
-                </h2>
-                <Badge variant="blue">
-                  {filteredClients.length} registrados
-                </Badge>
+      {/* Tarjeta "Listado de Clientes" al 100% del ancho */}
+      <Card className="w-full flex flex-col overflow-hidden">
+        {/* Barra de búsqueda integrada en la parte superior */}
+        <div className="p-4 sm:p-5 border-b border-slate-100 bg-white shrink-0 space-y-3">
+          <div className="flex items-center justify-between">
+            <h2 className="text-base sm:text-lg font-bold text-slate-900 font-heading">
+              Listado de Clientes
+            </h2>
+            <Badge variant="blue">{filteredClients.length} registrados</Badge>
+          </div>
+
+          <div className="relative">
+            <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
+              <Search className="h-4 w-4 text-slate-400" />
+            </div>
+            <Input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => {
+                setSearchQuery(e.target.value)
+                setCurrentPage(1)
+              }}
+              placeholder="Buscar por nombre, DNI o teléfono..."
+              className="pl-10 pr-9"
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => {
+                  setSearchQuery("")
+                  setCurrentPage(1)
+                }}
+                className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600 cursor-pointer"
+                aria-label="Limpiar búsqueda"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Tabla simplificada: únicamente Nombre y Última fecha */}
+        <TableScrollContainer>
+          <table className="min-w-full divide-y divide-slate-100">
+            <thead className="bg-slate-50/95">
+              <tr>
+                <th className="px-5 py-3.5 text-left text-2xs font-bold text-slate-500 uppercase tracking-wider">
+                  Nombre
+                </th>
+                <th className="px-5 py-3.5 text-right text-2xs font-bold text-slate-500 uppercase tracking-wider">
+                  Última fecha
+                </th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-slate-100">
+              {paginatedClients.map((client) => {
+                const isSelected = selectedClient?.id === client.id
+                return (
+                  <tr
+                    key={client.id}
+                    onClick={() => setSelectedClientId(client.id)}
+                    className={`transition-colors cursor-pointer ${
+                      isSelected
+                        ? "bg-blue-50/90 hover:bg-blue-50"
+                        : "hover:bg-slate-50/80"
+                    }`}
+                  >
+                    <td className="px-5 py-3.5 whitespace-nowrap">
+                      <div className="flex items-center gap-3">
+                        <div
+                          className={`w-8 h-8 rounded-xl flex items-center justify-center font-bold text-xs shrink-0 ${
+                            isSelected
+                              ? "bg-[#00559D] text-white"
+                              : "bg-slate-100 text-slate-700"
+                          }`}
+                        >
+                          {client.name.charAt(0).toUpperCase()}
+                        </div>
+                        <span
+                          className={`text-xs sm:text-sm truncate ${
+                            isSelected
+                              ? "font-bold text-[#00559D]"
+                              : "font-semibold text-slate-900"
+                          }`}
+                        >
+                          {client.name}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="px-5 py-3.5 whitespace-nowrap text-right text-xs font-medium text-slate-500">
+                      {client.lastVisit}
+                    </td>
+                  </tr>
+                )
+              })}
+
+              {filteredClients.length === 0 && (
+                <tr>
+                  <td
+                    colSpan={2}
+                    className="px-5 py-12 text-center text-sm text-slate-500"
+                  >
+                    No se encontraron clientes para "{searchQuery}".
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </TableScrollContainer>
+
+        <TablePagination
+          currentPage={safePage}
+          totalItems={filteredClients.length}
+          pageSize={PAGE_SIZE}
+          onPageChange={setCurrentPage}
+          itemLabel="clientes"
+        />
+      </Card>
+
+      {/* Modal / Pop-up centrado de "Ficha del Cliente" */}
+      {selectedClient && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 overflow-y-auto animate-fadeIn"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="client-profile-modal-title"
+          onClick={() => setSelectedClientId(null)}
+        >
+          <Card
+            className="w-full max-w-2xl max-h-[88vh] flex flex-col overflow-hidden shadow-2xl"
+            onClick={(e: React.MouseEvent) => e.stopPropagation()}
+          >
+            {/* Cabecera de la Ficha del Cliente con botón Editar y botón cerrar X */}
+            <div className="p-4 sm:p-5 border-b border-slate-100 bg-white flex items-start justify-between gap-3 shrink-0">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-11 h-11 rounded-2xl bg-[#0B2B4C] text-white font-bold text-sm flex items-center justify-center shrink-0">
+                  {selectedClient.name
+                    .split(" ")
+                    .map((p) => p[0])
+                    .join("")
+                    .slice(0, 2)
+                    .toUpperCase()}
+                </div>
+                <div className="min-w-0">
+                  <span className="block text-3xs uppercase tracking-wider font-bold text-[#F56C00]">
+                    Ficha del Cliente
+                  </span>
+                  <h2
+                    id="client-profile-modal-title"
+                    className="text-base sm:text-lg font-bold text-slate-900 font-heading truncate"
+                  >
+                    {selectedClient.name}
+                  </h2>
+                  <p className="text-xs text-slate-500 font-mono">
+                    DNI: {selectedClient.dni} • {selectedClient.branch}
+                  </p>
+                </div>
               </div>
 
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
-                  <Search className="h-4 w-4 text-slate-400" />
+              <div className="flex items-center gap-2 shrink-0">
+                <Button
+                  variant="outline"
+                  icon={Edit}
+                  onClick={() => openEditClientModal(selectedClient)}
+                  className="py-1.5 px-3 text-xs font-bold"
+                >
+                  Editar
+                </Button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedClientId(null)}
+                  className="p-1.5 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
+                  aria-label="Cerrar ficha del cliente"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Cuerpo scrollable de la Ficha del Cliente */}
+            <div className="p-4 sm:p-5 flex-1 min-h-0 overflow-y-auto space-y-5">
+              {/* Bloque 1: Datos de Contacto */}
+              <div className="space-y-2.5">
+                <h3 className="text-2xs uppercase tracking-wider font-bold text-slate-400 flex items-center gap-1.5">
+                  <User className="w-3.5 h-3.5 text-primary" />
+                  Datos de Contacto
+                </h3>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  <div className="p-3 rounded-2xl bg-slate-50 border border-slate-200/70">
+                    <span className="block text-3xs uppercase font-bold text-slate-400">
+                      Teléfono / WhatsApp
+                    </span>
+                    <span className="text-xs font-bold text-slate-900 mt-0.5 flex items-center gap-1.5">
+                      <Phone className="w-3.5 h-3.5 text-primary shrink-0" />
+                      {selectedClient.phone}
+                    </span>
+                  </div>
+
+                  <div className="p-3 rounded-2xl bg-slate-50 border border-slate-200/70">
+                    <span className="block text-3xs uppercase font-bold text-slate-400">
+                      Correo Electrónico
+                    </span>
+                    <span className="text-xs font-semibold text-slate-900 mt-0.5 flex items-center gap-1.5 truncate">
+                      <Mail className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                      <span className="truncate">{selectedClient.email}</span>
+                    </span>
+                  </div>
+
+                  <div className="p-3 rounded-2xl bg-slate-50 border border-slate-200/70 sm:col-span-2 flex items-center justify-between gap-2">
+                    <div className="min-w-0">
+                      <span className="block text-3xs uppercase font-bold text-slate-400">
+                        Dirección
+                      </span>
+                      <span className="text-xs font-semibold text-slate-800 mt-0.5 flex items-center gap-1.5 truncate">
+                        <MapPin className="w-3.5 h-3.5 text-[#F56C00] shrink-0" />
+                        <span className="truncate">
+                          {selectedClient.address}
+                        </span>
+                      </span>
+                    </div>
+                    <div className="text-right shrink-0 pl-2 border-l border-slate-200">
+                      <span className="block text-3xs uppercase font-bold text-slate-400">
+                        Total Facturado
+                      </span>
+                      <span className="text-xs sm:text-sm font-extrabold text-[#00559D] font-mono">
+                        $ {selectedClient.totalSpent.toLocaleString("es-AR")}
+                      </span>
+                    </div>
+                  </div>
                 </div>
-                <Input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Buscar por nombre, DNI o teléfono..."
-                  className="pl-10 pr-9"
-                />
-                {searchQuery && (
-                  <button
-                    type="button"
-                    onClick={() => setSearchQuery("")}
-                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600 cursor-pointer"
-                    aria-label="Limpiar búsqueda"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
+              </div>
+
+              {/* Bloque 2: Historial de Órdenes de Servicio Técnico y Compras */}
+              <div className="space-y-3 pt-2 border-t border-slate-100">
+                <div className="flex items-center justify-between gap-2">
+                  <h3 className="text-2xs uppercase tracking-wider font-bold text-slate-400 flex items-center gap-1.5">
+                    <FileText className="w-3.5 h-3.5 text-primary" />
+                    Historial del Cliente
+                  </h3>
+
+                  <div className="inline-flex rounded-xl bg-slate-100 p-0.5 border border-slate-200/70">
+                    <button
+                      type="button"
+                      onClick={() => setHistoryTab("repairs")}
+                      className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-2xs font-bold transition-all cursor-pointer ${
+                        historyTab === "repairs"
+                          ? "bg-[#00559D] text-white shadow-2xs"
+                          : "text-slate-600 hover:text-slate-900"
+                      }`}
+                    >
+                      <Wrench className="w-3 h-3" />
+                      <span>
+                        Servicio Técnico ({selectedClient.repairs.length})
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setHistoryTab("purchases")}
+                      className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-2xs font-bold transition-all cursor-pointer ${
+                        historyTab === "purchases"
+                          ? "bg-[#00559D] text-white shadow-2xs"
+                          : "text-slate-600 hover:text-slate-900"
+                      }`}
+                    >
+                      <ShoppingBag className="w-3 h-3" />
+                      <span>Compras ({selectedClient.purchases.length})</span>
+                    </button>
+                  </div>
+                </div>
+
+                {historyTab === "repairs" ? (
+                  selectedClient.repairs.length === 0 ? (
+                    <div className="p-6 rounded-2xl bg-slate-50 border border-slate-100 text-center text-xs text-slate-400">
+                      No registra órdenes de servicio técnico.
+                    </div>
+                  ) : (
+                    <div className="space-y-2.5">
+                      {selectedClient.repairs.map((rep) => (
+                        <div
+                          key={rep.id}
+                          className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-1.5"
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-bold text-primary">
+                              {rep.id} • {rep.device}
+                            </span>
+                            <Badge
+                              variant={
+                                rep.status === "Listo para Entrega" ||
+                                rep.status === "Entregado"
+                                  ? "green"
+                                  : rep.status === "Sin Solución"
+                                    ? "red"
+                                    : "orange"
+                              }
+                            >
+                              {rep.status}
+                            </Badge>
+                          </div>
+                          <p className="text-xs text-slate-600">{rep.issue}</p>
+                          <div className="flex items-center justify-between pt-1 text-2xs text-slate-400">
+                            <span>Fecha: {rep.date}</span>
+                            <span className="font-mono font-bold text-slate-900">
+                              $ {rep.cost.toLocaleString("es-AR")}
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )
+                ) : selectedClient.purchases.length === 0 ? (
+                  <div className="p-6 rounded-2xl bg-slate-50 border border-slate-100 text-center text-xs text-slate-400">
+                    No registra compras por mostrador.
+                  </div>
+                ) : (
+                  <div className="space-y-2.5">
+                    {selectedClient.purchases.map((pur) => (
+                      <div
+                        key={pur.id}
+                        className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-1.5"
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-bold text-slate-900">
+                            {pur.id}
+                          </span>
+                          <span className="inline-flex items-center gap-1 text-2xs font-semibold text-slate-600 bg-white px-2 py-0.5 rounded-full border border-slate-200">
+                            <CreditCard className="w-3 h-3 text-primary" />
+                            {pur.paymentMethod}
+                          </span>
+                        </div>
+                        <p className="text-xs text-slate-700 font-medium">
+                          {pur.items}
+                        </p>
+                        <div className="flex items-center justify-between pt-1 text-2xs text-slate-400">
+                          <span>Fecha: {pur.date}</span>
+                          <span className="font-mono font-bold text-emerald-700">
+                            $ {pur.total.toLocaleString("es-AR")}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 )}
               </div>
             </div>
-
-            {/* Tabla compacta con altura fija y scroll interno (overflow-y-auto) */}
-            <div className="flex-1 min-h-0 overflow-y-auto overflow-x-auto">
-              <table className="min-w-full divide-y divide-slate-100">
-                <thead className="bg-slate-50/95 sticky top-0 z-10 backdrop-blur-xs">
-                  <tr>
-                    <th className="px-4 sm:px-5 py-3 text-left text-2xs font-bold text-slate-500 uppercase tracking-wider">
-                      Nombre
-                    </th>
-                    <th className="px-4 sm:px-5 py-3 text-left text-2xs font-bold text-slate-500 uppercase tracking-wider">
-                      DNI
-                    </th>
-                    <th className="px-4 sm:px-5 py-3 text-left text-2xs font-bold text-slate-500 uppercase tracking-wider">
-                      Teléfono
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-slate-100">
-                  {filteredClients.map((client) => {
-                    const isSelected = selectedClient?.id === client.id
-                    return (
-                      <tr
-                        key={client.id}
-                        onClick={() => setSelectedClientId(client.id)}
-                        className={`transition-colors cursor-pointer ${
-                          isSelected
-                            ? "bg-blue-50/90 hover:bg-blue-50"
-                            : "hover:bg-slate-50/80"
-                        }`}
-                      >
-                        <td className="px-4 sm:px-5 py-3 whitespace-nowrap">
-                          <div className="flex items-center gap-2.5">
-                            <div
-                              className={`w-8 h-8 rounded-xl flex items-center justify-center font-bold text-xs shrink-0 ${
-                                isSelected
-                                  ? "bg-[#00559D] text-white"
-                                  : "bg-slate-100 text-slate-700"
-                              }`}
-                            >
-                              {client.name.charAt(0).toUpperCase()}
-                            </div>
-                            <div className="min-w-0">
-                              <span
-                                className={`block text-xs sm:text-sm truncate ${
-                                  isSelected
-                                    ? "font-bold text-[#00559D]"
-                                    : "font-semibold text-slate-900"
-                                }`}
-                              >
-                                {client.name}
-                              </span>
-                              <span className="block text-2xs text-slate-400">
-                                Últ. visita: {client.lastVisit}
-                              </span>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-4 sm:px-5 py-3 whitespace-nowrap text-xs font-mono text-slate-600">
-                          {client.dni}
-                        </td>
-                        <td className="px-4 sm:px-5 py-3 whitespace-nowrap text-xs font-medium text-slate-700">
-                          {client.phone}
-                        </td>
-                      </tr>
-                    )
-                  })}
-
-                  {filteredClients.length === 0 && (
-                    <tr>
-                      <td
-                        colSpan={3}
-                        className="px-5 py-12 text-center text-sm text-slate-500"
-                      >
-                        No se encontraron clientes para "{searchQuery}".
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
           </Card>
         </div>
-
-        {/* COLUMNA DERECHA (45% de ancho): Detalle / Ficha del Cliente nivelada horizontalmente */}
-        <div className="w-full lg:w-[45%] flex flex-col">
-          <Card className="flex flex-col overflow-hidden h-[580px]">
-            {selectedClient ? (
-              <>
-                {/* Cabecera de la Ficha del Cliente con botón de acción rápida "Editar" */}
-                <div className="p-4 sm:p-5 border-b border-slate-100 bg-white flex items-start justify-between gap-3 shrink-0">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className="w-11 h-11 rounded-2xl bg-[#0B2B4C] text-white font-bold text-sm flex items-center justify-center shrink-0">
-                      {selectedClient.name
-                        .split(" ")
-                        .map((p) => p[0])
-                        .join("")
-                        .slice(0, 2)
-                        .toUpperCase()}
-                    </div>
-                    <div className="min-w-0">
-                      <span className="block text-3xs uppercase tracking-wider font-bold text-[#F56C00]">
-                        Ficha del Cliente
-                      </span>
-                      <h2 className="text-base sm:text-lg font-bold text-slate-900 font-heading truncate">
-                        {selectedClient.name}
-                      </h2>
-                      <p className="text-xs text-slate-500 font-mono">
-                        DNI: {selectedClient.dni} • {selectedClient.branch}
-                      </p>
-                    </div>
-                  </div>
-
-                  <Button
-                    variant="outline"
-                    icon={Edit}
-                    onClick={() => openEditClientModal(selectedClient)}
-                    className="py-1.5 px-3 text-xs font-bold shrink-0"
-                  >
-                    Editar
-                  </Button>
-                </div>
-
-                {/* Cuerpo scrollable de la Ficha del Cliente */}
-                <div className="p-4 sm:p-5 flex-1 min-h-0 overflow-y-auto space-y-5">
-                  {/* Bloque 1: Datos de Contacto */}
-                  <div className="space-y-2.5">
-                    <h3 className="text-2xs uppercase tracking-wider font-bold text-slate-400 flex items-center gap-1.5">
-                      <User className="w-3.5 h-3.5 text-primary" />
-                      Datos de Contacto
-                    </h3>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                      <div className="p-3 rounded-2xl bg-slate-50 border border-slate-200/70">
-                        <span className="block text-3xs uppercase font-bold text-slate-400">
-                          Teléfono / WhatsApp
-                        </span>
-                        <span className="text-xs font-bold text-slate-900 mt-0.5 flex items-center gap-1.5">
-                          <Phone className="w-3.5 h-3.5 text-primary shrink-0" />
-                          {selectedClient.phone}
-                        </span>
-                      </div>
-
-                      <div className="p-3 rounded-2xl bg-slate-50 border border-slate-200/70">
-                        <span className="block text-3xs uppercase font-bold text-slate-400">
-                          Correo Electrónico
-                        </span>
-                        <span className="text-xs font-semibold text-slate-900 mt-0.5 flex items-center gap-1.5 truncate">
-                          <Mail className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                          <span className="truncate">
-                            {selectedClient.email}
-                          </span>
-                        </span>
-                      </div>
-
-                      <div className="p-3 rounded-2xl bg-slate-50 border border-slate-200/70 sm:col-span-2 flex items-center justify-between gap-2">
-                        <div className="min-w-0">
-                          <span className="block text-3xs uppercase font-bold text-slate-400">
-                            Dirección
-                          </span>
-                          <span className="text-xs font-semibold text-slate-800 mt-0.5 flex items-center gap-1.5 truncate">
-                            <MapPin className="w-3.5 h-3.5 text-[#F56C00] shrink-0" />
-                            <span className="truncate">
-                              {selectedClient.address}
-                            </span>
-                          </span>
-                        </div>
-                        <div className="text-right shrink-0 pl-2 border-l border-slate-200">
-                          <span className="block text-3xs uppercase font-bold text-slate-400">
-                            Total Facturado
-                          </span>
-                          <span className="text-xs sm:text-sm font-extrabold text-[#00559D] font-mono">
-                            $ {selectedClient.totalSpent.toLocaleString("es-AR")}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Bloque 2: Historial de Órdenes de Servicio Técnico y Compras */}
-                  <div className="space-y-3 pt-2 border-t border-slate-100">
-                    <div className="flex items-center justify-between gap-2">
-                      <h3 className="text-2xs uppercase tracking-wider font-bold text-slate-400 flex items-center gap-1.5">
-                        <FileText className="w-3.5 h-3.5 text-primary" />
-                        Historial del Cliente
-                      </h3>
-
-                      <div className="inline-flex rounded-xl bg-slate-100 p-0.5 border border-slate-200/70">
-                        <button
-                          type="button"
-                          onClick={() => setHistoryTab("repairs")}
-                          className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-2xs font-bold transition-all cursor-pointer ${
-                            historyTab === "repairs"
-                              ? "bg-[#00559D] text-white shadow-2xs"
-                              : "text-slate-600 hover:text-slate-900"
-                          }`}
-                        >
-                          <Wrench className="w-3 h-3" />
-                          <span>
-                            Servicio Técnico ({selectedClient.repairs.length})
-                          </span>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setHistoryTab("purchases")}
-                          className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-2xs font-bold transition-all cursor-pointer ${
-                            historyTab === "purchases"
-                              ? "bg-[#00559D] text-white shadow-2xs"
-                              : "text-slate-600 hover:text-slate-900"
-                          }`}
-                        >
-                          <ShoppingBag className="w-3 h-3" />
-                          <span>
-                            Compras ({selectedClient.purchases.length})
-                          </span>
-                        </button>
-                      </div>
-                    </div>
-
-                    {historyTab === "repairs" ? (
-                      selectedClient.repairs.length === 0 ? (
-                        <div className="p-6 rounded-2xl bg-slate-50 border border-slate-100 text-center text-xs text-slate-400">
-                          No registra órdenes de servicio técnico.
-                        </div>
-                      ) : (
-                        <div className="space-y-2.5">
-                          {selectedClient.repairs.map((rep) => (
-                            <div
-                              key={rep.id}
-                              className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-1.5"
-                            >
-                              <div className="flex items-center justify-between">
-                                <span className="text-xs font-bold text-primary">
-                                  {rep.id} • {rep.device}
-                                </span>
-                                <Badge
-                                  variant={
-                                    rep.status === "Listo para Entrega" ||
-                                    rep.status === "Entregado"
-                                      ? "green"
-                                      : rep.status === "Sin Solución"
-                                        ? "red"
-                                        : "orange"
-                                  }
-                                >
-                                  {rep.status}
-                                </Badge>
-                              </div>
-                              <p className="text-xs text-slate-600">
-                                {rep.issue}
-                              </p>
-                              <div className="flex items-center justify-between pt-1 text-2xs text-slate-400">
-                                <span>Fecha: {rep.date}</span>
-                                <span className="font-mono font-bold text-slate-900">
-                                  $ {rep.cost.toLocaleString("es-AR")}
-                                </span>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      )
-                    ) : selectedClient.purchases.length === 0 ? (
-                      <div className="p-6 rounded-2xl bg-slate-50 border border-slate-100 text-center text-xs text-slate-400">
-                        No registra compras por mostrador.
-                      </div>
-                    ) : (
-                      <div className="space-y-2.5">
-                        {selectedClient.purchases.map((pur) => (
-                          <div
-                            key={pur.id}
-                            className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-1.5"
-                          >
-                            <div className="flex items-center justify-between">
-                              <span className="text-xs font-bold text-slate-900">
-                                {pur.id}
-                              </span>
-                              <span className="inline-flex items-center gap-1 text-2xs font-semibold text-slate-600 bg-white px-2 py-0.5 rounded-full border border-slate-200">
-                                <CreditCard className="w-3 h-3 text-primary" />
-                                {pur.paymentMethod}
-                              </span>
-                            </div>
-                            <p className="text-xs text-slate-700 font-medium">
-                              {pur.items}
-                            </p>
-                            <div className="flex items-center justify-between pt-1 text-2xs text-slate-400">
-                              <span>Fecha: {pur.date}</span>
-                              <span className="font-mono font-bold text-emerald-700">
-                                $ {pur.total.toLocaleString("es-AR")}
-                              </span>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </>
-            ) : (
-              <div className="flex-1 flex flex-col items-center justify-center p-6 text-center">
-                <User className="w-10 h-10 text-slate-300 mb-2" />
-                <p className="text-sm font-semibold text-slate-700">
-                  Seleccioná un cliente del listado
-                </p>
-                <p className="text-xs text-slate-400 mt-1">
-                  Hacé clic en cualquier fila de la izquierda para ver su ficha
-                  completa.
-                </p>
-              </div>
-            )}
-          </Card>
-        </div>
-      </div>
+      )}
 
       {/* Modal para Crear o Editar Cliente */}
       {clientModalMode && (

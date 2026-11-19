@@ -1,5 +1,11 @@
 import React, { useState } from "react"
-import { Card, Badge, Button } from "../components/ui"
+import {
+  Card,
+  Badge,
+  Button,
+  TableScrollContainer,
+  TablePagination,
+} from "../components/ui"
 import {
   Plus,
   Receipt,
@@ -75,10 +81,20 @@ export default function Sales() {
   const [modalOpen, setModalOpen] = useState(false)
   const [salesHistory, setSalesHistory] =
     useState<SaleRecord[]>(initialSalesHistory)
+  const [currentPage, setCurrentPage] = useState(1)
+  const PAGE_SIZE = 10
 
   const handleSaleRegistered = (newSale: SaleRecord) => {
     setSalesHistory((prev) => [newSale, ...prev])
+    setCurrentPage(1)
   }
+
+  const totalPages = Math.max(1, Math.ceil(salesHistory.length / PAGE_SIZE))
+  const safePage = Math.min(currentPage, totalPages)
+  const paginatedSales = salesHistory.slice(
+    (safePage - 1) * PAGE_SIZE,
+    safePage * PAGE_SIZE,
+  )
 
   const sessionTotal = salesHistory.reduce((acc, s) => acc + s.total, 0)
 
@@ -141,7 +157,7 @@ export default function Sales() {
           <Badge variant="blue">{salesHistory.length} operaciones</Badge>
         </div>
 
-        <div className="overflow-x-auto">
+        <TableScrollContainer>
           <table className="min-w-full divide-y divide-slate-100">
             <thead className="bg-slate-50/80">
               <tr>
@@ -163,7 +179,7 @@ export default function Sales() {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-slate-100">
-              {salesHistory.map((sale) => (
+              {paginatedSales.map((sale) => (
                 <tr
                   key={sale.id}
                   className="hover:bg-slate-50/70 transition-colors"
@@ -215,7 +231,15 @@ export default function Sales() {
               ))}
             </tbody>
           </table>
-        </div>
+        </TableScrollContainer>
+
+        <TablePagination
+          currentPage={safePage}
+          totalItems={salesHistory.length}
+          pageSize={PAGE_SIZE}
+          onPageChange={setCurrentPage}
+          itemLabel="ventas"
+        />
       </Card>
 
       {/* Modal "+ Registrar Venta" */}

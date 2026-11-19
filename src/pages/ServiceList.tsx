@@ -1,5 +1,12 @@
 import React, { useState } from "react"
-import { Card, Button, Input, Select } from "../components/ui"
+import {
+  Card,
+  Button,
+  Input,
+  Select,
+  TableScrollContainer,
+  TablePagination,
+} from "../components/ui"
 import {
   Search,
   Plus,
@@ -133,6 +140,8 @@ export default function ServiceList() {
   const [searchQuery, setSearchQuery] = useState("")
   const [statusFilter, setStatusFilter] = useState("Todos")
   const [branchFilter, setBranchFilter] = useState("Todas")
+  const [currentPage, setCurrentPage] = useState(1)
+  const PAGE_SIZE = 10
   const [toastMessage, setToastMessage] = useState<string | null>(null)
 
   const handleQuickStatusChange = (id: string, newStatus: string) => {
@@ -163,6 +172,13 @@ export default function ServiceList() {
 
     return matchesQuery && matchesStatus && matchesBranch
   })
+
+  const totalPages = Math.max(1, Math.ceil(filteredOrders.length / PAGE_SIZE))
+  const safePage = Math.min(currentPage, totalPages)
+  const paginatedOrders = filteredOrders.slice(
+    (safePage - 1) * PAGE_SIZE,
+    safePage * PAGE_SIZE,
+  )
 
   return (
     <div className="space-y-5">
@@ -256,9 +272,9 @@ export default function ServiceList() {
         </Card>
       </div>
 
-      {/* Barra de Filtrado y Búsqueda Rápida */}
-      <Card className="p-4 space-y-3">
-        <div className="flex flex-col md:flex-row gap-3">
+      {/* Barra de Filtrado y Búsqueda Rápida en una sola fila horizontal compacta */}
+      <Card className="p-3.5 sm:p-4">
+        <div className="flex flex-col md:flex-row items-stretch md:items-center gap-3">
           <div className="relative flex-1">
             <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
               <Search className="h-4 w-4 text-slate-400" />
@@ -266,14 +282,20 @@ export default function ServiceList() {
             <Input
               type="text"
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={(e) => {
+                setSearchQuery(e.target.value)
+                setCurrentPage(1)
+              }}
               placeholder="Buscar por cliente, DNI, equipo o N° de orden (ej. OT-10452)..."
               className="pl-10 pr-9 py-2"
             />
             {searchQuery && (
               <button
                 type="button"
-                onClick={() => setSearchQuery("")}
+                onClick={() => {
+                  setSearchQuery("")
+                  setCurrentPage(1)
+                }}
                 className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600 cursor-pointer"
                 aria-label="Limpiar búsqueda"
               >
@@ -284,9 +306,30 @@ export default function ServiceList() {
 
           <div className="flex flex-wrap sm:flex-nowrap gap-2.5">
             <Select
+              value={statusFilter}
+              onChange={(e) => {
+                setStatusFilter(e.target.value)
+                setCurrentPage(1)
+              }}
+              className="w-full sm:w-48 py-2 cursor-pointer"
+              aria-label="Filtrar por estado"
+            >
+              <option value="Todos">Todos los estados</option>
+              {STATUS_OPTIONS.map((st) => (
+                <option key={st} value={st}>
+                  {st}
+                </option>
+              ))}
+            </Select>
+
+            <Select
               value={branchFilter}
-              onChange={(e) => setBranchFilter(e.target.value)}
-              className="w-full sm:w-44 py-2"
+              onChange={(e) => {
+                setBranchFilter(e.target.value)
+                setCurrentPage(1)
+              }}
+              className="w-full sm:w-44 py-2 cursor-pointer"
+              aria-label="Filtrar por sucursal"
             >
               <option value="Todas">Todas las sucursales</option>
               <option value="Yofre Norte">Yofre Norte</option>
@@ -294,35 +337,11 @@ export default function ServiceList() {
             </Select>
           </div>
         </div>
-
-        {/* Píldoras rápidas de filtro por Estado */}
-        <div className="flex items-center gap-1.5 flex-wrap">
-          <span className="text-2xs font-bold uppercase tracking-wider text-slate-400 mr-1">
-            Estado:
-          </span>
-          {["Todos", ...STATUS_OPTIONS].map((st) => {
-            const active = statusFilter === st
-            return (
-              <button
-                key={st}
-                type="button"
-                onClick={() => setStatusFilter(st)}
-                className={`px-2.5 py-1 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
-                  active
-                    ? "bg-[#00559D] text-white shadow-2xs"
-                    : "bg-slate-100 text-slate-600 hover:bg-slate-200/70"
-                }`}
-              >
-                {st}
-              </button>
-            )
-          })}
-        </div>
       </Card>
 
       {/* Tabla de Órdenes Limpia y Despejada */}
       <Card className="overflow-hidden">
-        <div className="overflow-x-auto">
+        <TableScrollContainer>
           <table className="min-w-full divide-y divide-slate-100">
             <thead className="bg-slate-50/90">
               <tr>
@@ -347,7 +366,7 @@ export default function ServiceList() {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-slate-100">
-              {filteredOrders.map((order) => (
+              {paginatedOrders.map((order) => (
                 <tr
                   key={order.id}
                   className="hover:bg-slate-50/70 transition-colors"
@@ -432,7 +451,15 @@ export default function ServiceList() {
               )}
             </tbody>
           </table>
-        </div>
+        </TableScrollContainer>
+
+        <TablePagination
+          currentPage={safePage}
+          totalItems={filteredOrders.length}
+          pageSize={PAGE_SIZE}
+          onPageChange={setCurrentPage}
+          itemLabel="órdenes"
+        />
       </Card>
     </div>
   )

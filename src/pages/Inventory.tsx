@@ -1,5 +1,14 @@
 import React, { useState } from "react"
-import { Card, Button, Input, Select, Badge, Label } from "../components/ui"
+import {
+  Card,
+  Button,
+  Input,
+  Select,
+  Badge,
+  Label,
+  TableScrollContainer,
+  TablePagination,
+} from "../components/ui"
 import Modal from "../components/Modal"
 import {
   Search,
@@ -108,6 +117,8 @@ export default function Inventory() {
   const [inventory, setInventory] = useState<InventoryItem[]>(initialInventory)
   const [searchTerm, setSearchTerm] = useState("")
   const [categoryFilter, setCategoryFilter] = useState("Todas las categorías")
+  const [currentPage, setCurrentPage] = useState(1)
+  const PAGE_SIZE = 10
 
   // Selección múltiple
   const [selectedIds, setSelectedIds] = useState<string[]>([])
@@ -256,6 +267,13 @@ export default function Inventory() {
       item.category === categoryFilter
     return matchesSearch && matchesCategory
   })
+
+  const totalPages = Math.max(1, Math.ceil(visibleItems.length / PAGE_SIZE))
+  const safePage = Math.min(currentPage, totalPages)
+  const paginatedItems = visibleItems.slice(
+    (safePage - 1) * PAGE_SIZE,
+    safePage * PAGE_SIZE,
+  )
 
   const allVisibleSelected =
     visibleItems.length > 0 &&
@@ -417,9 +435,9 @@ export default function Inventory() {
         </div>
       )}
 
-      {/* Tarjeta de Filtros Rápidos por Categoría y Buscador */}
-      <Card className="p-4 sm:p-5 space-y-4">
-        <div className="flex flex-col sm:flex-row gap-3">
+      {/* Tarjeta compacta de Buscador y Combo Box de Categorías en una sola fila */}
+      <Card className="p-3.5 sm:p-4">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
           <div className="relative flex-1">
             <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
               <Search className="h-4 w-4 text-slate-400" />
@@ -427,17 +445,23 @@ export default function Inventory() {
             <Input
               type="text"
               placeholder="Buscar por nombre, código SKU o categoría..."
-              className="pl-10"
+              className="pl-10 py-2"
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              onChange={(e) => {
+                setSearchTerm(e.target.value)
+                setCurrentPage(1)
+              }}
             />
           </div>
 
           <div className="flex gap-2">
             <Select
-              className="w-48"
+              className="w-full sm:w-52 py-2 cursor-pointer"
               value={categoryFilter}
-              onChange={(e) => setCategoryFilter(e.target.value)}
+              onChange={(e) => {
+                setCategoryFilter(e.target.value)
+                setCurrentPage(1)
+              }}
             >
               {CATEGORIES.map((cat) => (
                 <option key={cat} value={cat}>
@@ -447,48 +471,11 @@ export default function Inventory() {
             </Select>
           </div>
         </div>
-
-        {/* Píldoras de Filtros Rápidos por Categoría */}
-        <div className="flex items-center gap-2 flex-wrap pt-1">
-          <span className="text-2xs font-bold uppercase tracking-wider text-slate-400 mr-1">
-            Categorías:
-          </span>
-          {CATEGORIES.map((cat) => {
-            const active = categoryFilter === cat
-            const count =
-              cat === "Todas las categorías"
-                ? inventory.length
-                : inventory.filter((i) => i.category === cat).length
-            return (
-              <button
-                key={cat}
-                type="button"
-                onClick={() => setCategoryFilter(cat)}
-                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
-                  active
-                    ? "bg-[#00559D] text-white shadow-2xs"
-                    : "bg-slate-100 text-slate-600 hover:bg-slate-200/70"
-                }`}
-              >
-                <span>{cat === "Todas las categorías" ? "Todas" : cat}</span>
-                <span
-                  className={`px-1.5 py-0.2 rounded-full text-3xs font-bold ${
-                    active
-                      ? "bg-white/20 text-white"
-                      : "bg-slate-200 text-slate-700"
-                  }`}
-                >
-                  {count}
-                </span>
-              </button>
-            )
-          })}
-        </div>
       </Card>
 
       {/* Tabla Principal de Inventario */}
       <Card className="overflow-hidden">
-        <div className="overflow-x-auto">
+        <TableScrollContainer>
           <table className="min-w-full divide-y divide-slate-100">
             <thead className="bg-slate-50/90">
               <tr>
@@ -525,7 +512,7 @@ export default function Inventory() {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-slate-100">
-              {visibleItems.map((item) => {
+              {paginatedItems.map((item) => {
                 const isSelected = selectedIds.includes(item.id)
 
                 return (
@@ -653,29 +640,16 @@ export default function Inventory() {
               )}
             </tbody>
           </table>
-        </div>
+        </TableScrollContainer>
 
-        {/* Pie de tabla / Paginación */}
-        <div className="px-5 py-3.5 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-3 bg-slate-50/50">
-          <p className="text-xs text-slate-500">
-            Mostrando <strong>{visibleItems.length}</strong> de{" "}
-            <strong>{inventory.length}</strong> productos
-          </p>
-          <div className="flex space-x-1">
-            <Button variant="outline" className="px-2.5 py-1 text-xs bg-white">
-              Anterior
-            </Button>
-            <Button
-              variant="outline"
-              className="px-2.5 py-1 text-xs bg-blue-50 text-primary border-primary/30 font-bold"
-            >
-              1
-            </Button>
-            <Button variant="outline" className="px-2.5 py-1 text-xs bg-white">
-              Siguiente
-            </Button>
-          </div>
-        </div>
+        {/* Pie de tabla / Paginación uniforme (máximo 10 filas) */}
+        <TablePagination
+          currentPage={safePage}
+          totalItems={visibleItems.length}
+          pageSize={PAGE_SIZE}
+          onPageChange={setCurrentPage}
+          itemLabel="productos"
+        />
       </Card>
 
       {/* Modal de Alta / Edición Completa de Producto */}

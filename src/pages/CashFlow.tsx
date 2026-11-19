@@ -1,6 +1,15 @@
 import React, { useMemo, useState, useEffect } from "react"
 import { useSearchParams } from "react-router-dom"
-import { Card, Button, Badge, Input, Label, Select } from "../components/ui"
+import {
+  Card,
+  Button,
+  Badge,
+  Input,
+  Label,
+  Select,
+  TableScrollContainer,
+  TablePagination,
+} from "../components/ui"
 import Modal from "../components/Modal"
 import {
   WalletCards,
@@ -164,6 +173,8 @@ export default function CashFlow() {
     from: string
     to: string
   }>({ from: "", to: "" })
+  const [currentPage, setCurrentPage] = useState(1)
+  const PAGE_SIZE = 10
 
   // Modal de Nuevo Movimiento
   const [isNewMovModalOpen, setIsNewMovModalOpen] = useState(false)
@@ -200,12 +211,14 @@ export default function CashFlow() {
       from: dateFromInput,
       to: dateToInput,
     })
+    setCurrentPage(1)
   }
 
   const handleResetDateFilter = () => {
     setDateFromInput("")
     setDateToInput("")
     setAppliedDateRange({ from: "", to: "" })
+    setCurrentPage(1)
   }
 
   // Movimientos filtrados según "Desde" y "Hasta"
@@ -221,6 +234,16 @@ export default function CashFlow() {
       return true
     })
   }, [movements, appliedDateRange])
+
+  const totalPages = Math.max(
+    1,
+    Math.ceil(filteredMovements.length / PAGE_SIZE),
+  )
+  const safePage = Math.min(currentPage, totalPages)
+  const paginatedMovements = filteredMovements.slice(
+    (safePage - 1) * PAGE_SIZE,
+    safePage * PAGE_SIZE,
+  )
 
   // Totales de la vista actual
   const summary = useMemo(() => {
@@ -614,7 +637,7 @@ export default function CashFlow() {
         </div>
 
         {/* Tabla Minimalista: únicamente Fecha, Concepto, Método, Monto, Usuario */}
-        <div className="overflow-x-auto">
+        <TableScrollContainer>
           <table className="min-w-full divide-y divide-slate-100">
             <thead className="bg-slate-50/90">
               <tr>
@@ -636,7 +659,7 @@ export default function CashFlow() {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-slate-100">
-              {filteredMovements.map((mov) => {
+              {paginatedMovements.map((mov) => {
                 const isExpense = mov.type === "EXPENSE"
                 return (
                   <tr
@@ -699,7 +722,15 @@ export default function CashFlow() {
               )}
             </tbody>
           </table>
-        </div>
+        </TableScrollContainer>
+
+        <TablePagination
+          currentPage={safePage}
+          totalItems={filteredMovements.length}
+          pageSize={PAGE_SIZE}
+          onPageChange={setCurrentPage}
+          itemLabel="movimientos"
+        />
       </Card>
 
       {/* Modal de Cierre de Caja Diario Simplificado (3 Bloques Directos) */}
