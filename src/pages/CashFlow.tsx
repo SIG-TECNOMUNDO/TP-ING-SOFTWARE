@@ -1,4 +1,5 @@
 import React, { useMemo, useState, useEffect } from "react"
+import useBodyScrollLock from "../hooks/useBodyScrollLock"
 import { useSearchParams } from "react-router-dom"
 import {
   Card,
@@ -190,6 +191,7 @@ export default function CashFlow() {
 
   // Modal de Cierre de Caja Diario y Reporte (Accesible a cualquier empleado)
   const [isClosureModalOpen, setIsClosureModalOpen] = useState(false)
+  useBodyScrollLock(isClosureModalOpen)
   const [initialCashInput, setInitialCashInput] = useState("50000")
   const [countedCashInput, setCountedCashInput] = useState("")
   const [countedCardsInput, setCountedCardsInput] = useState("")

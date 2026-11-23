@@ -1,4 +1,5 @@
 import { X } from "lucide-react"
+import useBodyScrollLock from "../hooks/useBodyScrollLock"
 
 export default function Modal({
   title,
@@ -9,6 +10,7 @@ export default function Modal({
   children: React.ReactNode
   onClose: () => void
 }) {
+  useBodyScrollLock()
   return (
     <div
       className="fixed inset-0 z-[60] grid place-items-center bg-slate-900/50 backdrop-blur-xs p-3 sm:p-4 overflow-y-auto animate-fadeIn"

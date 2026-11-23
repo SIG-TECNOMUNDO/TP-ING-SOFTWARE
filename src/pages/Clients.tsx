@@ -1,4 +1,5 @@
 import React, { useState } from "react"
+import useBodyScrollLock from "../hooks/useBodyScrollLock"
 import {
   Card,
   Button,
@@ -420,6 +421,7 @@ export default function Clients() {
   const selectedClient = selectedClientId
     ? clients.find((c) => c.id === selectedClientId) || null
     : null
+  useBodyScrollLock(Boolean(selectedClient))
 
   const openCreateClientModal = () => {
     setClientForm({
