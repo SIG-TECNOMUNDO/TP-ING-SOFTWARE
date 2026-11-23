@@ -20,6 +20,7 @@ import {
 } from "lucide-react"
 import { Card, Button, Input, Badge, Label } from "./ui"
 import Modal from "./Modal"
+import useBodyScrollLock from "../hooks/useBodyScrollLock"
 import { useAuth } from "../context/AuthContext"
 import { useBranch } from "../context/BranchContext"
 import {
@@ -1207,11 +1208,12 @@ export default function RegisterSaleModal({
   onSaleRegistered?: (sale: SaleRecord) => void
 }) {
   const visible = isOpen ?? open ?? false
+  useBodyScrollLock(visible)
   if (!visible) return null
 
   return (
     <div
-      className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-3 sm:p-6 overflow-y-auto animate-fadeIn"
+      className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-3 sm:p-6 overflow-y-auto overscroll-contain animate-fadeIn"
       role="dialog"
       aria-modal="true"
       aria-labelledby="register-sale-modal-title"

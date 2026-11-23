@@ -13,12 +13,12 @@ export default function Modal({
   useBodyScrollLock()
   return (
     <div
-      className="fixed inset-0 z-[60] grid place-items-center bg-slate-900/50 backdrop-blur-xs p-3 sm:p-4 overflow-y-auto animate-fadeIn"
+      className="fixed inset-0 z-[60] grid place-items-center bg-slate-900/50 backdrop-blur-xs p-3 sm:p-4 overflow-y-auto overscroll-contain animate-fadeIn"
       role="dialog"
       aria-modal="true"
       aria-labelledby="modal-title"
     >
-      <div className="bg-white text-slate-900 rounded-2xl shadow-xl border border-slate-200/90 w-full max-w-lg max-h-[90vh] overflow-y-auto transition-all">
+      <div className="bg-white text-slate-900 rounded-2xl shadow-xl border border-slate-200/90 w-full max-w-lg max-h-[90vh] overflow-y-auto overscroll-contain transition-all">
         <div className="p-4 sm:p-5 border-b border-slate-100 flex justify-between items-center">
           <h2 id="modal-title" className="text-base sm:text-lg font-bold text-slate-900 font-heading">
             {title}

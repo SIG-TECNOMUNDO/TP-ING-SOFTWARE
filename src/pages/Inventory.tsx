@@ -19,11 +19,8 @@ import {
   type PhoneProduct,
   type PhoneUnit,
 } from "../data/phoneStock"
-import {
-  isImeiAlreadySold,
-  isValidImei,
-  normalizeImei,
-} from "../data/soldDevices"
+import { isImeiAlreadySold, isValidImei } from "../data/soldDevices"
+import ImeiUnitsEditor, { type ImeiUnitDraft } from "../components/ImeiUnitsEditor"
 import {
   Search,
   Plus,
@@ -76,17 +73,15 @@ const itemToPhone = (item: InventoryItem): PhoneProduct => ({
   units: item.units ?? [],
 })
 
-const availableImeiText = (units: PhoneUnit[] | undefined, branchId: string) =>
+const availableDrafts = (units: PhoneUnit[] | undefined): ImeiUnitDraft[] =>
   (units ?? [])
-    .filter((u) => u.status === "AVAILABLE" && u.branchId === branchId)
-    .map((u) => u.imei)
-    .join("\n")
+    .filter((u) => u.status === "AVAILABLE")
+    .map(({ imei, branchId }) => ({ imei, branchId }))
 
-const parseImeis = (text: string) =>
-  text
-    .split(/[\n,;]+/)
-    .map(normalizeImei)
-    .filter(Boolean)
+const IMEI_BRANCHES = [
+  { id: BRANCH_YOFRE, label: "Yofre" },
+  { id: BRANCH_ALTA, label: "Alta Cba" },
+]
 
 const initialInventory: InventoryItem[] = [
   {
@@ -161,8 +156,7 @@ interface ProductFormState {
   stockAlta: string
   minStock: string
   tracksImei: boolean
-  imeisYofre: string
-  imeisAlta: string
+  imeiUnits: ImeiUnitDraft[]
 }
 
 export default function Inventory() {
@@ -202,8 +196,7 @@ export default function Inventory() {
     stockAlta: "0",
     minStock: "3",
     tracksImei: false,
-    imeisYofre: "",
-    imeisAlta: "",
+    imeiUnits: [],
   })
   const [productFormError, setProductFormError] = useState<string | null>(null)
 
@@ -236,8 +229,7 @@ export default function Inventory() {
       stockAlta: "0",
       minStock: "3",
       tracksImei: false,
-      imeisYofre: "",
-      imeisAlta: "",
+      imeiUnits: [],
     })
     setEditingOriginalId(null)
     setProductFormError(null)
@@ -256,8 +248,7 @@ export default function Inventory() {
       stockAlta: String(item.stockAlta),
       minStock: String(item.minStock),
       tracksImei: Boolean(item.tracksImei),
-      imeisYofre: availableImeiText(item.units, BRANCH_YOFRE),
-      imeisAlta: availableImeiText(item.units, BRANCH_ALTA),
+      imeiUnits: availableDrafts(item.units),
     })
     setEditingOriginalId(item.id)
     setProductFormError(null)
@@ -268,6 +259,20 @@ export default function Inventory() {
     setProductModalMode(null)
     setEditingOriginalId(null)
     setProductFormError(null)
+  }
+
+  // IMEI ya vendido o cargado en otro producto
+  const imeiConflict = (imei: string) => {
+    const ownSold = inventory
+      .find((item) => item.id === editingOriginalId)
+      ?.units?.some((u) => u.imei === imei && u.status === "SOLD")
+    if (ownSold || isImeiAlreadySold(imei)) return "ya fue vendido"
+    const other = inventory.find(
+      (item) =>
+        item.id !== editingOriginalId &&
+        item.units?.some((u) => u.imei === imei),
+    )
+    return other ? `ya está cargado en ${other.name}` : null
   }
 
   // Guardar Producto (Alta o Edición completa)
@@ -320,9 +325,7 @@ export default function Inventory() {
     // Celulares: un IMEI por unidad, sin repetidos ni ya vendidos
     let units: PhoneUnit[] | undefined
     if (productForm.tracksImei) {
-      const yofre = parseImeis(productForm.imeisYofre)
-      const alta = parseImeis(productForm.imeisAlta)
-      const all = [...yofre, ...alta]
+      const all = productForm.imeiUnits.map((u) => u.imei)
       const invalid = all.filter((imei) => !isValidImei(imei))
       if (invalid.length === 1) {
         setProductFormError(
@@ -352,16 +355,7 @@ export default function Inventory() {
       const previousUnits =
         inventory.find((item) => item.id === editingOriginalId)?.units ?? []
       const soldUnits = previousUnits.filter((u) => u.status === "SOLD")
-      const usedElsewhere = all.find(
-        (imei) =>
-          soldUnits.some((u) => u.imei === imei) ||
-          isImeiAlreadySold(imei) ||
-          inventory.some(
-            (item) =>
-              item.id !== editingOriginalId &&
-              item.units?.some((u) => u.imei === imei),
-          ),
-      )
+      const usedElsewhere = all.find((imei) => imeiConflict(imei) !== null)
       if (usedElsewhere) {
         setProductFormError(
           `El IMEI ${usedElsewhere} ya está cargado en otro producto o fue vendido.`,
@@ -370,14 +364,8 @@ export default function Inventory() {
       }
       units = [
         ...soldUnits,
-        ...yofre.map((imei) => ({
-          imei,
-          branchId: BRANCH_YOFRE,
-          status: "AVAILABLE" as const,
-        })),
-        ...alta.map((imei) => ({
-          imei,
-          branchId: BRANCH_ALTA,
+        ...productForm.imeiUnits.map((u) => ({
+          ...u,
           status: "AVAILABLE" as const,
         })),
       ]
@@ -1008,35 +996,14 @@ export default function Inventory() {
                 </span>
               </label>
               {productForm.tracksImei ? (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                  {(
-                    [
-                      ["imeisYofre", "Yofre"],
-                      ["imeisAlta", "Alta Cba"],
-                    ] as const
-                  ).map(([field, label]) => (
-                    <div key={field}>
-                      <Label htmlFor={`prod-${field}`}>
-                        {label} (
-                        {parseImeis(productForm[field]).filter(isValidImei).length}{" "}
-                        un.)
-                      </Label>
-                      <textarea
-                        id={`prod-${field}`}
-                        rows={4}
-                        value={productForm[field]}
-                        onChange={(e) =>
-                          setProductForm((prev) => ({
-                            ...prev,
-                            [field]: e.target.value,
-                          }))
-                        }
-                        placeholder="Un IMEI por renglón (escaneá o pegá)"
-                        className="block w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                      />
-                    </div>
-                  ))}
-                </div>
+                <ImeiUnitsEditor
+                  units={productForm.imeiUnits}
+                  onChange={(imeiUnits) =>
+                    setProductForm((prev) => ({ ...prev, imeiUnits }))
+                  }
+                  branches={IMEI_BRANCHES}
+                  checkImei={imeiConflict}
+                />
               ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 items-end">
                   <div>
