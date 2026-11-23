@@ -22,6 +22,9 @@ describe("IMEI", () => {
       /repetido/,
     )
     expect(imeiListError(["123"])).toMatch(/no es válido/)
+    expect(imeiListError(["123", "abc"])).toBe(
+      "Hay 2 IMEI no válidos (deben tener 15 dígitos): 123, abc",
+    )
   })
 
   it("calcula la garantía de 90 días", () => {

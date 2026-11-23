@@ -323,16 +323,30 @@ export default function Inventory() {
       const yofre = parseImeis(productForm.imeisYofre)
       const alta = parseImeis(productForm.imeisAlta)
       const all = [...yofre, ...alta]
-      const invalid = all.find((imei) => !isValidImei(imei))
-      if (invalid) {
+      const invalid = all.filter((imei) => !isValidImei(imei))
+      if (invalid.length === 1) {
         setProductFormError(
-          `El IMEI ${invalid} no es válido: debe tener 15 dígitos.`,
+          `El IMEI ${invalid[0]} no es válido: debe tener 15 dígitos.`,
         )
         return
       }
-      const repeated = all.find((imei, index) => all.indexOf(imei) !== index)
-      if (repeated) {
-        setProductFormError(`El IMEI ${repeated} está cargado dos veces.`)
+      if (invalid.length > 1) {
+        setProductFormError(
+          `Hay ${invalid.length} IMEI no válidos (deben tener 15 dígitos): ${invalid.join(", ")}.`,
+        )
+        return
+      }
+      const repeated = [
+        ...new Set(all.filter((imei, index) => all.indexOf(imei) !== index)),
+      ]
+      if (repeated.length === 1) {
+        setProductFormError(`El IMEI ${repeated[0]} está cargado dos veces.`)
+        return
+      }
+      if (repeated.length > 1) {
+        setProductFormError(
+          `Hay ${repeated.length} IMEI cargados dos veces: ${repeated.join(", ")}.`,
+        )
         return
       }
       const previousUnits =
@@ -997,13 +1011,15 @@ export default function Inventory() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                   {(
                     [
-                      ["imeisYofre", "IMEIs en Yofre"],
-                      ["imeisAlta", "IMEIs en Alta Cba"],
+                      ["imeisYofre", "Yofre"],
+                      ["imeisAlta", "Alta Cba"],
                     ] as const
                   ).map(([field, label]) => (
                     <div key={field}>
                       <Label htmlFor={`prod-${field}`}>
-                        {label} ({parseImeis(productForm[field]).length} un.)
+                        {label} (
+                        {parseImeis(productForm[field]).filter(isValidImei).length}{" "}
+                        un.)
                       </Label>
                       <textarea
                         id={`prod-${field}`}
