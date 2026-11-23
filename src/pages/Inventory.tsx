@@ -10,6 +10,7 @@ import {
   TablePagination,
 } from "../components/ui"
 import Modal from "../components/Modal"
+import { useAuth } from "../context/AuthContext"
 import {
   Search,
   Plus,
@@ -31,6 +32,8 @@ interface InventoryItem {
   name: string
   category: string
   price: number
+  /** Precio de costo: solo lo ve y edita el Administrador (riesgo R6). */
+  costPrice?: number
   stockYofre: number
   stockAlta: number
   minStock: number
@@ -42,6 +45,7 @@ const initialInventory: InventoryItem[] = [
     name: "Módulo Display iPhone 13 Pro",
     category: "Repuestos",
     price: 125000,
+    costPrice: 75000,
     stockYofre: 3,
     stockAlta: 2,
     minStock: 3,
@@ -51,6 +55,7 @@ const initialInventory: InventoryItem[] = [
     name: "Samsung Galaxy S23 Ultra 256GB",
     category: "Equipos",
     price: 1450000,
+    costPrice: 1050000,
     stockYofre: 1,
     stockAlta: 1,
     minStock: 1,
@@ -60,6 +65,7 @@ const initialInventory: InventoryItem[] = [
     name: "Funda Silicona MagSafe iPhone 14",
     category: "Accesorios",
     price: 15000,
+    costPrice: 6000,
     stockYofre: 12,
     stockAlta: 8,
     minStock: 5,
@@ -69,6 +75,7 @@ const initialInventory: InventoryItem[] = [
     name: "Batería Original Motorola G22",
     category: "Repuestos",
     price: 35000,
+    costPrice: 21000,
     stockYofre: 0,
     stockAlta: 2,
     minStock: 3,
@@ -78,6 +85,7 @@ const initialInventory: InventoryItem[] = [
     name: "Auriculares JBL Tune 510BT",
     category: "Audio",
     price: 45000,
+    costPrice: 27000,
     stockYofre: 5,
     stockAlta: 6,
     minStock: 4,
@@ -87,6 +95,7 @@ const initialInventory: InventoryItem[] = [
     name: "Cargador Samsung 25W Tipo C",
     category: "Accesorios",
     price: 22000,
+    costPrice: 12000,
     stockYofre: 15,
     stockAlta: 10,
     minStock: 10,
@@ -108,12 +117,15 @@ interface ProductFormState {
   name: string
   category: string
   price: string
+  costPrice: string
   stockYofre: string
   stockAlta: string
   minStock: string
 }
 
 export default function Inventory() {
+  const { user } = useAuth()
+  const isAdmin = user?.role === "ADMIN"
   const [inventory, setInventory] = useState<InventoryItem[]>(initialInventory)
   const [searchTerm, setSearchTerm] = useState("")
   const [categoryFilter, setCategoryFilter] = useState("Todas las categorías")
@@ -135,6 +147,7 @@ export default function Inventory() {
     name: "",
     category: "Repuestos",
     price: "",
+    costPrice: "",
     stockYofre: "0",
     stockAlta: "0",
     minStock: "3",
@@ -165,6 +178,7 @@ export default function Inventory() {
       name: "",
       category: "Repuestos",
       price: "",
+      costPrice: "",
       stockYofre: "0",
       stockAlta: "0",
       minStock: "3",
@@ -181,6 +195,7 @@ export default function Inventory() {
       name: item.name,
       category: item.category,
       price: String(item.price),
+      costPrice: item.costPrice != null ? String(item.costPrice) : "",
       stockYofre: String(item.stockYofre),
       stockAlta: String(item.stockAlta),
       minStock: String(item.minStock),
@@ -220,6 +235,18 @@ export default function Inventory() {
       setProductFormError("Ingresá un precio de venta válido mayor a 0.")
       return
     }
+    const numCost =
+      productForm.costPrice.trim() === ""
+        ? undefined
+        : Number(productForm.costPrice)
+    if (isAdmin && numCost !== undefined && (isNaN(numCost) || numCost < 0)) {
+      setProductFormError("Ingresá un precio de costo válido.")
+      return
+    }
+    // Solo el Administrador puede cambiar el costo; el resto conserva el actual
+    const previousCost = inventory.find(
+      (item) => item.id === editingOriginalId,
+    )?.costPrice
 
     const duplicateSku = inventory.some(
       (item) =>
@@ -236,6 +263,11 @@ export default function Inventory() {
       name: cleanName,
       category: productForm.category,
       price: Math.round(numPrice),
+      costPrice: isAdmin
+        ? numCost !== undefined
+          ? Math.round(numCost)
+          : undefined
+        : previousCost,
       stockYofre: numYofre,
       stockAlta: numAlta,
       minStock: numMin,
@@ -500,6 +532,11 @@ export default function Inventory() {
                 <th className="px-5 py-3.5 text-left text-2xs font-bold text-slate-500 uppercase tracking-wider">
                   Precio de Venta
                 </th>
+                {isAdmin && (
+                  <th className="px-5 py-3.5 text-left text-2xs font-bold text-slate-500 uppercase tracking-wider">
+                    Costo / Margen
+                  </th>
+                )}
                 <th className="px-5 py-3.5 text-center text-2xs font-bold text-slate-500 uppercase tracking-wider">
                   Stock Yofre
                 </th>
@@ -568,6 +605,31 @@ export default function Inventory() {
                     <td className="px-5 py-4 whitespace-nowrap text-xs sm:text-sm font-bold font-mono text-slate-900">
                       $ {item.price.toLocaleString("es-AR")}
                     </td>
+
+                    {isAdmin && (
+                      <td className="px-5 py-4 whitespace-nowrap text-xs font-mono text-slate-600">
+                        {item.costPrice != null ? (
+                          <>
+                            <span className="block font-semibold">
+                              $ {item.costPrice.toLocaleString("es-AR")}
+                            </span>
+                            <span className="block text-2xs text-emerald-600 font-semibold">
+                              Margen{" "}
+                              {item.price > 0
+                                ? Math.round(
+                                    ((item.price - item.costPrice) /
+                                      item.price) *
+                                      100,
+                                  )
+                                : 0}
+                              %
+                            </span>
+                          </>
+                        ) : (
+                          <span className="text-slate-400">Sin cargar</span>
+                        )}
+                      </td>
+                    )}
 
                     <td className="px-5 py-4 whitespace-nowrap text-center">
                       <span
@@ -723,6 +785,28 @@ export default function Inventory() {
                 placeholder="Ej. Módulo Display Samsung S23 Original"
               />
             </div>
+
+            {isAdmin && (
+              <div>
+                <Label htmlFor="prod-cost" className="whitespace-nowrap">
+                  Precio de Costo ($) · solo visible para Administración
+                </Label>
+                <Input
+                  id="prod-cost"
+                  type="number"
+                  min="0"
+                  value={productForm.costPrice}
+                  onChange={(e) =>
+                    setProductForm((prev) => ({
+                      ...prev,
+                      costPrice: e.target.value,
+                    }))
+                  }
+                  placeholder="Ej. 50000"
+                  className="font-mono"
+                />
+              </div>
+            )}
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 items-end">
               <div>

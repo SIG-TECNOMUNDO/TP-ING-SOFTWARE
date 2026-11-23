@@ -25,6 +25,8 @@ export type Product = {
   name: string
   category: string
   salePrice: number
+  /** Solo llega en la respuesta de la API para el rol Administrador. */
+  costPrice?: number | null
   minStock: number
   stocks: Stock[]
 }

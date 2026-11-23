@@ -36,8 +36,8 @@ databaseTest("API con PostgreSQL", () => {
     const branchId = branches.body.data[0].id as string
     const beforeResponse = await agent.get(`/api/products?branchId=${branchId}`)
     const product = beforeResponse.body.data.find(
-      (item: { stocks: { quantity: number }[] }) =>
-        (item.stocks[0]?.quantity ?? 0) > 0,
+      (item: { category: string; stocks: { quantity: number }[] }) =>
+        item.category !== "Equipos" && (item.stocks[0]?.quantity ?? 0) > 0,
     )
     const before = product.stocks[0].quantity as number
     const sale = await agent.post("/api/sales").send({

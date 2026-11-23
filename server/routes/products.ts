@@ -8,6 +8,10 @@ import {
 } from "../auth/middleware.js"
 import { pool } from "../database/pool.js"
 import { AppError } from "../errors.js"
+import {
+  canSeeCostPrice,
+  stripCostPrice,
+} from "../domain/product-visibility.js"
 import type { AuthRequest } from "../types.js"
 
 export const productsRouter = Router()
@@ -18,6 +22,7 @@ const productSchema = z.object({
   name: z.string().min(2).max(180),
   category: z.string().min(2).max(80),
   salePrice: z.coerce.number().nonnegative(),
+  costPrice: z.coerce.number().nonnegative().nullable().optional(),
   minStock: z.coerce.number().int().nonnegative(),
   stocks: z.array(
     z.object({
@@ -40,7 +45,7 @@ productsRouter.get(
       typeof request.query.category === "string" ? request.query.category : ""
     const result = await pool.query(
       `SELECT p.id, p.code, p.name, c.name AS category, p.sale_price::float AS "salePrice",
-            p.min_stock AS "minStock",
+            p.cost_price::float AS "costPrice", p.min_stock AS "minStock",
             COALESCE(json_agg(json_build_object('branchId', b.id, 'branchName', b.name, 'quantity', bs.quantity)
               ORDER BY b.name) FILTER (WHERE b.id IS NOT NULL), '[]') AS stocks
      FROM products p JOIN categories c ON c.id = p.category_id
@@ -53,7 +58,7 @@ productsRouter.get(
      GROUP BY p.id, c.name ORDER BY p.name`,
       [search, category, branchId],
     )
-    response.json({ data: result.rows })
+    response.json({ data: stripCostPrice(result.rows, request.user!.role) })
   },
 )
 
@@ -105,14 +110,15 @@ productsRouter.post(
         [input.category],
       )
       const result = await db.query<{ id: string }>(
-        `INSERT INTO products (code, name, category_id, sale_price, min_stock)
-       VALUES ($1, $2, $3, $4, $5) RETURNING id`,
+        `INSERT INTO products (code, name, category_id, sale_price, min_stock, cost_price)
+       VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`,
         [
           input.code,
           input.name,
           category.rows[0]?.id,
           input.salePrice,
           input.minStock,
+          canSeeCostPrice(request.user!.role) ? (input.costPrice ?? null) : null,
         ],
       )
       const id = result.rows[0]?.id
@@ -148,7 +154,8 @@ productsRouter.put(
         [input.category],
       )
       const result = await db.query(
-        `UPDATE products SET code=$1,name=$2,category_id=$3,sale_price=$4,min_stock=$5,updated_at=now()
+        `UPDATE products SET code=$1,name=$2,category_id=$3,sale_price=$4,min_stock=$5,
+         cost_price=CASE WHEN $7::boolean THEN $8::numeric ELSE cost_price END,updated_at=now()
        WHERE id=$6 AND active=true`,
         [
           input.code,
@@ -157,6 +164,8 @@ productsRouter.put(
           input.salePrice,
           input.minStock,
           id,
+          canSeeCostPrice(request.user!.role) && input.costPrice !== undefined,
+          input.costPrice ?? null,
         ],
       )
       if (!result.rowCount) throw new AppError(404, "Producto no encontrado")

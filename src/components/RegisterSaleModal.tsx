@@ -22,6 +22,13 @@ import { Card, Button, Input, Badge, Label } from "./ui"
 import Modal from "./Modal"
 import { useAuth } from "../context/AuthContext"
 import { useBranch } from "../context/BranchContext"
+import {
+  isImeiAlreadySold,
+  isValidImei,
+  normalizeImei,
+  registerSoldDevices,
+  requiresImei,
+} from "../data/soldDevices"
 
 export interface SaleCatalogProduct {
   id: string
@@ -36,6 +43,18 @@ export interface SaleCatalogProduct {
 
 export interface CartItem extends SaleCatalogProduct {
   quantity: number
+  /** Un IMEI por unidad, solo para equipos (categoría "Equipos"). */
+  imeis?: string[]
+}
+
+/** Ajusta la lista de IMEI a la cantidad de unidades del ítem. */
+function withQuantity(item: CartItem, quantity: number): CartItem {
+  if (!requiresImei(item.category)) return { ...item, quantity }
+  const imeis = Array.from(
+    { length: quantity },
+    (_, index) => item.imeis?.[index] ?? "",
+  )
+  return { ...item, quantity, imeis }
 }
 
 export interface SaleRecord {
@@ -44,6 +63,7 @@ export interface SaleRecord {
   time: string
   seller: string
   branch?: string
+  client?: string
   items: CartItem[]
   subtotal: number
   discountAmount: number
@@ -122,6 +142,26 @@ export const CATALOG_PRODUCTS: SaleCatalogProduct[] = [
     stock: 12,
     minStock: 4,
   },
+  {
+    id: "PRD-008",
+    code: "PRD-008",
+    barcode: "7790008",
+    name: "Samsung Galaxy S23 Ultra 256GB",
+    category: "Equipos",
+    price: 1450000,
+    stock: 2,
+    minStock: 1,
+  },
+  {
+    id: "PRD-009",
+    code: "PRD-009",
+    barcode: "7790009",
+    name: "Motorola Moto G54 128GB",
+    category: "Equipos",
+    price: 420000,
+    stock: 3,
+    minStock: 1,
+  },
 ]
 
 interface ToastAlert {
@@ -148,6 +188,7 @@ export function RegisterSaleForm({
   const [barcodeQuery, setBarcodeQuery] = useState("")
   const [showSuggestions, setShowSuggestions] = useState(false)
   const [cart, setCart] = useState<CartItem[]>([])
+  const [clientName, setClientName] = useState("")
   const [currentDateTime, setCurrentDateTime] = useState(new Date())
 
   // Descuento
@@ -275,9 +316,9 @@ export function RegisterSaleForm({
     setCart((prev) =>
       existing
         ? prev.map((item) =>
-            item.id === product.id ? { ...item, quantity: nextQty } : item,
+            item.id === product.id ? withQuantity(item, nextQty) : item,
           )
-        : [...prev, { ...product, quantity: 1 }],
+        : [...prev, withQuantity({ ...product, quantity: 0 }, 1)],
     )
     setBarcodeQuery("")
     setShowSuggestions(false)
@@ -327,11 +368,43 @@ export function RegisterSaleForm({
     }
 
     setCart((prev) =>
+      prev.map((item) => (item.id === id ? withQuantity(item, nextQty) : item)),
+    )
+  }
+
+  const updateItemImei = (id: string, index: number, value: string) => {
+    setCart((prev) =>
       prev.map((item) =>
-        item.id === id ? { ...item, quantity: nextQty } : item,
+        item.id === id
+          ? {
+              ...item,
+              imeis: (item.imeis ?? []).map((imei, i) =>
+                i === index ? value : imei,
+              ),
+            }
+          : item,
       ),
     )
   }
+
+  // Riesgo R4: no se puede vender un equipo sin IMEI válido
+  const imeiError = (() => {
+    const all: string[] = []
+    for (const item of cart) {
+      if (!requiresImei(item.category)) continue
+      for (const raw of item.imeis ?? []) {
+        const imei = normalizeImei(raw)
+        if (!imei) return `Falta cargar el IMEI de ${item.name}.`
+        if (!isValidImei(imei))
+          return `El IMEI ${imei} no es válido: debe tener 15 dígitos.`
+        if (all.includes(imei)) return `El IMEI ${imei} está repetido.`
+        if (isImeiAlreadySold(imei))
+          return `El IMEI ${imei} ya figura en otra venta.`
+        all.push(imei)
+      }
+    }
+    return null
+  })()
 
   const removeItem = (id: string) => {
     setCart((prev) => prev.filter((item) => item.id !== id))
@@ -340,6 +413,7 @@ export function RegisterSaleForm({
 
   const resetForm = () => {
     setCart([])
+    setClientName("")
     setBarcodeQuery("")
     setShowSuggestions(false)
     setDiscountValue("")
@@ -357,6 +431,11 @@ export function RegisterSaleForm({
         "Escaneá o buscá al menos un producto antes de confirmar la venta.",
       )
       barcodeInputRef.current?.focus()
+      return
+    }
+
+    if (imeiError) {
+      addToast("error", "IMEI obligatorio", imeiError)
       return
     }
 
@@ -396,7 +475,11 @@ export function RegisterSaleForm({
       }),
       seller: user?.name || "Administrador",
       branch: activeBranchName,
-      items: [...cart],
+      client: clientName.trim() || undefined,
+      items: cart.map((item) => ({
+        ...item,
+        imeis: item.imeis?.map(normalizeImei),
+      })),
       subtotal,
       discountAmount,
       total,
@@ -407,6 +490,20 @@ export function RegisterSaleForm({
       "success",
       "¡Venta confirmada con éxito!",
       `Comprobante ${record.id} por $ ${total.toLocaleString("es-AR")} registrado correctamente.`,
+    )
+
+    registerSoldDevices(
+      record.items.flatMap((item) =>
+        (item.imeis ?? []).map((imei) => ({
+          imei,
+          productName: item.name,
+          saleId: record.id,
+          soldAt: currentDateTime.toISOString(),
+          branch: activeBranchName,
+          client: record.client || "Consumidor final",
+          seller: record.seller,
+        })),
+      ),
     )
 
     onSaleRegistered?.(record)
@@ -617,6 +714,37 @@ export function RegisterSaleForm({
                             <span className="block text-2xs font-mono text-slate-400 mt-0.5">
                               {item.id} • Cód: {item.barcode}
                             </span>
+                            {requiresImei(item.category) && (
+                              <div className="mt-2 space-y-1.5">
+                                {(item.imeis ?? []).map((imei, index) => {
+                                  const invalid =
+                                    imei.trim() !== "" && !isValidImei(imei)
+                                  return (
+                                    <input
+                                      key={index}
+                                      type="text"
+                                      inputMode="numeric"
+                                      maxLength={20}
+                                      value={imei}
+                                      onChange={(e) =>
+                                        updateItemImei(
+                                          item.id,
+                                          index,
+                                          e.target.value,
+                                        )
+                                      }
+                                      placeholder={`IMEI unidad ${index + 1} (obligatorio, 15 dígitos)`}
+                                      aria-label={`IMEI unidad ${index + 1} de ${item.name}`}
+                                      className={`block w-full max-w-xs px-2.5 py-1.5 text-xs font-mono rounded-lg border focus:outline-none focus:ring-2 ${
+                                        imei.trim() === "" || invalid
+                                          ? "border-rose-300 bg-rose-50/60 focus:ring-rose-200"
+                                          : "border-emerald-300 bg-emerald-50/60 focus:ring-emerald-200"
+                                      }`}
+                                    />
+                                  )
+                                })}
+                              </div>
+                            )}
                           </td>
 
                           <td className="px-4 py-3.5 whitespace-nowrap text-center">
@@ -678,6 +806,22 @@ export function RegisterSaleForm({
         <div className="lg:col-span-5 xl:col-span-4 flex flex-col">
           <Card className="p-5 flex-1 flex flex-col justify-between space-y-5">
             <div className="space-y-5">
+              {/* Cliente (queda asociado a la garantía del equipo) */}
+              <div>
+                <Label className="flex items-center justify-between gap-2">
+                  <span>Cliente</span>
+                  <span className="text-2xs font-normal text-slate-400">
+                    Opcional, se usa para la garantía
+                  </span>
+                </Label>
+                <Input
+                  value={clientName}
+                  onChange={(e) => setClientName(e.target.value)}
+                  placeholder="Nombre y DNI (vacío = consumidor final)"
+                  className="mt-1.5"
+                />
+              </div>
+
               {/* Descuentos */}
               <div>
                 <Label className="flex items-center justify-between">
@@ -919,8 +1063,15 @@ export function RegisterSaleForm({
               </div>
 
               <div className="space-y-2.5">
+                {imeiError && (
+                  <div className="flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50 p-2.5 text-xs font-semibold text-rose-700">
+                    <AlertTriangle className="w-4 h-4 shrink-0" />
+                    <span>{imeiError}</span>
+                  </div>
+                )}
                 <Button
                   type="button"
+                  disabled={Boolean(imeiError)}
                   onClick={handleConfirmSale}
                   icon={Check}
                   className="w-full py-3 text-sm font-bold shadow-md"

@@ -108,11 +108,12 @@ try {
     stockAlta,
   ] of products) {
     const productResult = await client.query<IdRow>(
-      `INSERT INTO products (code, name, category_id, sale_price, min_stock)
-       SELECT $1, $2, id, $3, $4 FROM categories WHERE name = $5
+      `INSERT INTO products (code, name, category_id, sale_price, min_stock, cost_price)
+       SELECT $1, $2, id, $3, $4, $6 FROM categories WHERE name = $5
        ON CONFLICT (code) DO UPDATE SET name = EXCLUDED.name, sale_price = EXCLUDED.sale_price,
-         min_stock = EXCLUDED.min_stock RETURNING id`,
-      [code, name, price, minStock, category],
+         min_stock = EXCLUDED.min_stock, cost_price = EXCLUDED.cost_price RETURNING id`,
+      // Costo de referencia para la demo: 60 % del precio de venta
+      [code, name, price, minStock, category, Math.round(price * 0.6)],
     )
     const productId = productResult.rows[0]?.id
     for (const [branchId, quantity] of [
