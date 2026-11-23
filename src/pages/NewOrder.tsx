@@ -1,4 +1,9 @@
 import React, { useState } from "react"
+import {
+  findSoldDevice,
+  isValidImei,
+  warrantyInfo,
+} from "../data/soldDevices"
 import { Card, Button, Input, Label, Select, Badge } from "../components/ui"
 import {
   ArrowLeft,
@@ -326,6 +331,47 @@ export default function NewOrder() {
                     placeholder="15 dígitos o N° Serie"
                     className="font-mono"
                   />
+                  {isValidImei(imei) &&
+                    (() => {
+                      // Reingreso por garantía: ¿lo vendió Tecnomundo?
+                      const sold = findSoldDevice(imei)
+                      if (!sold)
+                        return (
+                          <p className="mt-1.5 text-2xs text-slate-500">
+                            Este IMEI no figura en ventas de Tecnomundo.
+                          </p>
+                        )
+                      const warranty = warrantyInfo(sold)
+                      return (
+                        <div
+                          className={`mt-1.5 rounded-lg border p-2 text-2xs ${
+                            warranty.active
+                              ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+                              : "border-rose-200 bg-rose-50 text-rose-800"
+                          }`}
+                        >
+                          <p className="font-bold">
+                            {warranty.active
+                              ? `En garantía: quedan ${warranty.daysLeft} días`
+                              : "Garantía vencida"}
+                          </p>
+                          <p>
+                            {sold.productName} vendido el{" "}
+                            {new Date(sold.soldAt).toLocaleDateString("es-AR")}{" "}
+                            ({sold.saleId}) a {sold.client}
+                          </p>
+                          {warranty.active && priority !== "Garantía" && (
+                            <button
+                              type="button"
+                              onClick={() => setPriority("Garantía")}
+                              className="mt-1 font-bold underline cursor-pointer"
+                            >
+                              Marcar como reingreso por garantía
+                            </button>
+                          )}
+                        </div>
+                      )
+                    })()}
                 </div>
                 <div>
                   <Label>PIN / Patrón de desbloqueo</Label>

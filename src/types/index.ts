@@ -29,6 +29,9 @@ export type Product = {
   costPrice?: number | null
   minStock: number
   stocks: Stock[]
+  /** Celular: stock por IMEI. */
+  tracksImei?: boolean
+  availableUnits?: { imei: string; branchId: string }[]
 }
 export type Client = {
   id: string

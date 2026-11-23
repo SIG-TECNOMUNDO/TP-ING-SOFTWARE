@@ -41,11 +41,6 @@ const DEMO_DEVICES: SoldDevice[] = [
   },
 ]
 
-/** Categorías que son equipos y exigen IMEI al venderse. */
-export function requiresImei(category: string) {
-  return ["equipos", "celulares"].includes(category.trim().toLowerCase())
-}
-
 export function normalizeImei(value: string) {
   return value.replace(/\s|-/g, "")
 }

@@ -128,6 +128,22 @@ try {
     }
   }
 
+  // El Samsung es un celular: su stock se lleva por IMEI (una unidad por IMEI)
+  const samsung = await client.query<IdRow>(
+    `UPDATE products SET tracks_imei = true WHERE code = 'PRD-002' RETURNING id`,
+  )
+  const samsungId = samsung.rows[0]?.id
+  for (const [branchId, imei] of [
+    [yofre, "352099001761481"],
+    [alta, "352099001761499"],
+  ] as const) {
+    await client.query(
+      `INSERT INTO device_units (product_id, branch_id, imei) VALUES ($1, $2, $3)
+       ON CONFLICT (imei) DO NOTHING`,
+      [samsungId, branchId, imei],
+    )
+  }
+
   const clients = [
     ["Martín Pérez", "32456789", "351-555-4321", "martin.p@email.com"],
     ["Laura Gómez", "28123456", "351-444-9876", "laurag@email.com"],

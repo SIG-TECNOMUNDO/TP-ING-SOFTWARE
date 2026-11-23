@@ -7,9 +7,9 @@ import { AppError } from "../errors.js"
 import { calculatePayment } from "../domain/payment.js"
 import { recordCashMovement } from "../cash.js"
 import {
+  imeiListError,
   isValidImei,
   normalizeImei,
-  requiresImei,
   warrantyStatus,
 } from "../domain/imei.js"
 import type { AuthRequest } from "../types.js"
@@ -74,10 +74,9 @@ salesRouter.post(
           salePrice: number
           quantity: number
           name: string
-          category: string
+          tracksImei: boolean
         }>(
-          `SELECT p.sale_price::float AS "salePrice", bs.quantity, p.name, c.name AS category FROM products p
-         JOIN categories c ON c.id=p.category_id
+          `SELECT p.sale_price::float AS "salePrice", bs.quantity, p.name, p.tracks_imei AS "tracksImei" FROM products p
          JOIN branch_stock bs ON bs.product_id=p.id AND bs.branch_id=$2
          WHERE p.id=$1 AND p.active=true FOR UPDATE OF bs`,
           [item.productId, input.branchId],
@@ -90,25 +89,30 @@ salesRouter.post(
           )
         if (found.quantity < item.quantity)
           throw new AppError(409, "Stock insuficiente para completar la venta")
-        // Riesgo R4: un equipo no se puede vender sin IMEI (uno por unidad)
+        // Riesgo R4: un celular no se vende sin IMEI. Cada IMEI tiene que
+        // existir en el stock de la sucursal y estar disponible.
         let imeis: (string | null)[] = Array(item.quantity).fill(null)
-        if (requiresImei(found.category)) {
+        if (found.tracksImei) {
           const given = (item.imeis ?? []).map(normalizeImei)
-          if (given.length !== item.quantity || !given.every(isValidImei))
+          if (given.length !== item.quantity)
             throw new AppError(
               400,
-              `Cargá un IMEI válido de 15 dígitos para cada unidad de ${found.name}`,
+              `Elegí un IMEI para cada unidad de ${found.name}`,
             )
-          if (new Set(given).size !== given.length)
-            throw new AppError(400, `Hay IMEI repetidos en ${found.name}`)
-          const sold = await db.query(
-            `SELECT imei FROM sale_items WHERE imei = ANY($1::text[]) LIMIT 1`,
-            [given],
+          const error = imeiListError(given)
+          if (error) throw new AppError(400, error)
+          const units = await db.query<{ imei: string }>(
+            `SELECT imei FROM device_units
+             WHERE product_id=$1 AND branch_id=$2 AND status='AVAILABLE' AND imei = ANY($3::text[])
+             FOR UPDATE`,
+            [item.productId, input.branchId, given],
           )
-          if (sold.rowCount)
+          const available = new Set(units.rows.map((row) => row.imei))
+          const missing = given.find((imei) => !available.has(imei))
+          if (missing)
             throw new AppError(
               409,
-              `El IMEI ${sold.rows[0].imei} ya figura en otra venta`,
+              `El IMEI ${missing} no está disponible en el stock de ${found.name} de esta sucursal`,
             )
           imeis = given
         }
@@ -159,10 +163,16 @@ salesRouter.post(
         if (item.imeis.some(Boolean)) {
           // Un renglón por unidad para guardar el IMEI de cada equipo
           for (const imei of item.imeis)
+          {
             await db.query(
               `INSERT INTO sale_items (sale_id,product_id,quantity,unit_price,subtotal,imei) VALUES ($1,$2,1,$3,$3,$4)`,
               [sale.id, item.productId, item.price, imei],
             )
+            await db.query(
+              `UPDATE device_units SET status='SOLD', sale_id=$1, sold_at=now() WHERE imei=$2`,
+              [sale.id, imei],
+            )
+          }
         } else {
           await db.query(
             `INSERT INTO sale_items (sale_id,product_id,quantity,unit_price,subtotal) VALUES ($1,$2,$3,$4,$5)`,

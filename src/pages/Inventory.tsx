@@ -1,4 +1,4 @@
-import React, { useState } from "react"
+import React, { useEffect, useState } from "react"
 import {
   Card,
   Button,
@@ -11,6 +11,19 @@ import {
 } from "../components/ui"
 import Modal from "../components/Modal"
 import { useAuth } from "../context/AuthContext"
+import {
+  BRANCH_ALTA,
+  BRANCH_YOFRE,
+  loadPhones,
+  savePhones,
+  type PhoneProduct,
+  type PhoneUnit,
+} from "../data/phoneStock"
+import {
+  isImeiAlreadySold,
+  isValidImei,
+  normalizeImei,
+} from "../data/soldDevices"
 import {
   Search,
   Plus,
@@ -37,7 +50,43 @@ interface InventoryItem {
   stockYofre: number
   stockAlta: number
   minStock: number
+  /** Celular: el stock se lleva por IMEI, una unidad por IMEI. */
+  tracksImei?: boolean
+  units?: PhoneUnit[]
 }
+
+const countAvailable = (units: PhoneUnit[], branchId: string) =>
+  units.filter((u) => u.status === "AVAILABLE" && u.branchId === branchId)
+    .length
+
+const phoneToItem = (phone: PhoneProduct): InventoryItem => ({
+  ...phone,
+  tracksImei: true,
+  stockYofre: countAvailable(phone.units, BRANCH_YOFRE),
+  stockAlta: countAvailable(phone.units, BRANCH_ALTA),
+})
+
+const itemToPhone = (item: InventoryItem): PhoneProduct => ({
+  id: item.id,
+  name: item.name,
+  category: item.category,
+  price: item.price,
+  costPrice: item.costPrice,
+  minStock: item.minStock,
+  units: item.units ?? [],
+})
+
+const availableImeiText = (units: PhoneUnit[] | undefined, branchId: string) =>
+  (units ?? [])
+    .filter((u) => u.status === "AVAILABLE" && u.branchId === branchId)
+    .map((u) => u.imei)
+    .join("\n")
+
+const parseImeis = (text: string) =>
+  text
+    .split(/[\n,;]+/)
+    .map(normalizeImei)
+    .filter(Boolean)
 
 const initialInventory: InventoryItem[] = [
   {
@@ -49,16 +98,6 @@ const initialInventory: InventoryItem[] = [
     stockYofre: 3,
     stockAlta: 2,
     minStock: 3,
-  },
-  {
-    id: "PRD-002",
-    name: "Samsung Galaxy S23 Ultra 256GB",
-    category: "Equipos",
-    price: 1450000,
-    costPrice: 1050000,
-    stockYofre: 1,
-    stockAlta: 1,
-    minStock: 1,
   },
   {
     id: "PRD-003",
@@ -121,12 +160,23 @@ interface ProductFormState {
   stockYofre: string
   stockAlta: string
   minStock: string
+  tracksImei: boolean
+  imeisYofre: string
+  imeisAlta: string
 }
 
 export default function Inventory() {
   const { user } = useAuth()
   const isAdmin = user?.role === "ADMIN"
-  const [inventory, setInventory] = useState<InventoryItem[]>(initialInventory)
+  const [inventory, setInventory] = useState<InventoryItem[]>(() => [
+    ...loadPhones().map(phoneToItem),
+    ...initialInventory,
+  ])
+
+  // Los celulares se comparten con Ventas (stock por IMEI)
+  useEffect(() => {
+    savePhones(inventory.filter((item) => item.tracksImei).map(itemToPhone))
+  }, [inventory])
   const [searchTerm, setSearchTerm] = useState("")
   const [categoryFilter, setCategoryFilter] = useState("Todas las categorías")
   const [currentPage, setCurrentPage] = useState(1)
@@ -151,6 +201,9 @@ export default function Inventory() {
     stockYofre: "0",
     stockAlta: "0",
     minStock: "3",
+    tracksImei: false,
+    imeisYofre: "",
+    imeisAlta: "",
   })
   const [productFormError, setProductFormError] = useState<string | null>(null)
 
@@ -182,6 +235,9 @@ export default function Inventory() {
       stockYofre: "0",
       stockAlta: "0",
       minStock: "3",
+      tracksImei: false,
+      imeisYofre: "",
+      imeisAlta: "",
     })
     setEditingOriginalId(null)
     setProductFormError(null)
@@ -199,6 +255,9 @@ export default function Inventory() {
       stockYofre: String(item.stockYofre),
       stockAlta: String(item.stockAlta),
       minStock: String(item.minStock),
+      tracksImei: Boolean(item.tracksImei),
+      imeisYofre: availableImeiText(item.units, BRANCH_YOFRE),
+      imeisAlta: availableImeiText(item.units, BRANCH_ALTA),
     })
     setEditingOriginalId(item.id)
     setProductFormError(null)
@@ -258,6 +317,58 @@ export default function Inventory() {
       return
     }
 
+    // Celulares: un IMEI por unidad, sin repetidos ni ya vendidos
+    let units: PhoneUnit[] | undefined
+    if (productForm.tracksImei) {
+      const yofre = parseImeis(productForm.imeisYofre)
+      const alta = parseImeis(productForm.imeisAlta)
+      const all = [...yofre, ...alta]
+      const invalid = all.find((imei) => !isValidImei(imei))
+      if (invalid) {
+        setProductFormError(
+          `El IMEI ${invalid} no es válido: debe tener 15 dígitos.`,
+        )
+        return
+      }
+      const repeated = all.find((imei, index) => all.indexOf(imei) !== index)
+      if (repeated) {
+        setProductFormError(`El IMEI ${repeated} está cargado dos veces.`)
+        return
+      }
+      const previousUnits =
+        inventory.find((item) => item.id === editingOriginalId)?.units ?? []
+      const soldUnits = previousUnits.filter((u) => u.status === "SOLD")
+      const usedElsewhere = all.find(
+        (imei) =>
+          soldUnits.some((u) => u.imei === imei) ||
+          isImeiAlreadySold(imei) ||
+          inventory.some(
+            (item) =>
+              item.id !== editingOriginalId &&
+              item.units?.some((u) => u.imei === imei),
+          ),
+      )
+      if (usedElsewhere) {
+        setProductFormError(
+          `El IMEI ${usedElsewhere} ya está cargado en otro producto o fue vendido.`,
+        )
+        return
+      }
+      units = [
+        ...soldUnits,
+        ...yofre.map((imei) => ({
+          imei,
+          branchId: BRANCH_YOFRE,
+          status: "AVAILABLE" as const,
+        })),
+        ...alta.map((imei) => ({
+          imei,
+          branchId: BRANCH_ALTA,
+          status: "AVAILABLE" as const,
+        })),
+      ]
+    }
+
     const updatedItem: InventoryItem = {
       id: cleanId,
       name: cleanName,
@@ -268,9 +379,11 @@ export default function Inventory() {
           ? Math.round(numCost)
           : undefined
         : previousCost,
-      stockYofre: numYofre,
-      stockAlta: numAlta,
+      stockYofre: units ? countAvailable(units, BRANCH_YOFRE) : numYofre,
+      stockAlta: units ? countAvailable(units, BRANCH_ALTA) : numAlta,
       minStock: numMin,
+      tracksImei: productForm.tracksImei,
+      units,
     }
 
     if (productModalMode === "create") {
@@ -583,6 +696,11 @@ export default function Inventory() {
                         <span className="block text-2xs text-slate-400 font-mono">
                           {item.id} • Mínimo alerta: {item.minStock} un.
                         </span>
+                        {item.tracksImei && (
+                          <span className="mt-1 inline-block rounded-full bg-blue-50 border border-blue-200 px-2 py-0.5 text-3xs font-bold text-[#00559D]">
+                            Stock por IMEI
+                          </span>
+                        )}
                       </button>
                     </td>
 
@@ -855,53 +973,103 @@ export default function Inventory() {
               <span className="block text-2xs uppercase tracking-wider font-bold text-slate-500">
                 Disponibilidad por Sucursal
               </span>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 items-end">
-                <div>
-                  <Label
-                    htmlFor="prod-stock-yofre"
-                    className="whitespace-nowrap truncate"
-                  >
-                    Stock Yofre (un.)
-                  </Label>
-                  <Input
-                    id="prod-stock-yofre"
-                    type="number"
-                    min="0"
-                    required
-                    value={productForm.stockYofre}
-                    onChange={(e) =>
-                      setProductForm((prev) => ({
-                        ...prev,
-                        stockYofre: e.target.value,
-                      }))
-                    }
-                    className="font-mono bg-white"
-                  />
+              <label className="flex items-start gap-2 rounded-xl border border-slate-200 bg-white p-2.5 cursor-pointer">
+                <input
+                  type="checkbox"
+                  className="mt-0.5 h-4 w-4 rounded border-slate-300 text-primary"
+                  checked={productForm.tracksImei}
+                  onChange={(e) =>
+                    setProductForm((prev) => ({
+                      ...prev,
+                      tracksImei: e.target.checked,
+                    }))
+                  }
+                />
+                <span className="text-xs text-slate-700">
+                  <strong>Es celular (controla IMEI)</strong>
+                  <span className="block text-2xs text-slate-500">
+                    Se carga un IMEI por unidad y el stock se calcula solo.
+                    Al vender se elige el IMEI exacto.
+                  </span>
+                </span>
+              </label>
+              {productForm.tracksImei ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                  {(
+                    [
+                      ["imeisYofre", "IMEIs en Yofre"],
+                      ["imeisAlta", "IMEIs en Alta Cba"],
+                    ] as const
+                  ).map(([field, label]) => (
+                    <div key={field}>
+                      <Label htmlFor={`prod-${field}`}>
+                        {label} ({parseImeis(productForm[field]).length} un.)
+                      </Label>
+                      <textarea
+                        id={`prod-${field}`}
+                        rows={4}
+                        value={productForm[field]}
+                        onChange={(e) =>
+                          setProductForm((prev) => ({
+                            ...prev,
+                            [field]: e.target.value,
+                          }))
+                        }
+                        placeholder="Un IMEI por renglón (escaneá o pegá)"
+                        className="block w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                      />
+                    </div>
+                  ))}
                 </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 items-end">
+                  <div>
+                    <Label
+                      htmlFor="prod-stock-yofre"
+                      className="whitespace-nowrap truncate"
+                    >
+                      Stock Yofre (un.)
+                    </Label>
+                    <Input
+                      id="prod-stock-yofre"
+                      type="number"
+                      min="0"
+                      required
+                      value={productForm.stockYofre}
+                      onChange={(e) =>
+                        setProductForm((prev) => ({
+                          ...prev,
+                          stockYofre: e.target.value,
+                        }))
+                      }
+                      className="font-mono bg-white"
+                    />
+                  </div>
 
-                <div>
-                  <Label
-                    htmlFor="prod-stock-alta"
-                    className="whitespace-nowrap truncate"
-                  >
-                    Stock Alta Cba (un.)
-                  </Label>
-                  <Input
-                    id="prod-stock-alta"
-                    type="number"
-                    min="0"
-                    required
-                    value={productForm.stockAlta}
-                    onChange={(e) =>
-                      setProductForm((prev) => ({
-                        ...prev,
-                        stockAlta: e.target.value,
-                      }))
-                    }
-                    className="font-mono bg-white"
-                  />
+                  <div>
+                    <Label
+                      htmlFor="prod-stock-alta"
+                      className="whitespace-nowrap truncate"
+                    >
+                      Stock Alta Cba (un.)
+                    </Label>
+                    <Input
+                      id="prod-stock-alta"
+                      type="number"
+                      min="0"
+                      required
+                      value={productForm.stockAlta}
+                      onChange={(e) =>
+                        setProductForm((prev) => ({
+                          ...prev,
+                          stockAlta: e.target.value,
+                        }))
+                      }
+                      className="font-mono bg-white"
+                    />
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
 
             <div className="flex justify-end gap-2.5 pt-3 border-t border-slate-100">

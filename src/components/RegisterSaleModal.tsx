@@ -23,12 +23,11 @@ import Modal from "./Modal"
 import { useAuth } from "../context/AuthContext"
 import { useBranch } from "../context/BranchContext"
 import {
-  isImeiAlreadySold,
   isValidImei,
   normalizeImei,
   registerSoldDevices,
-  requiresImei,
 } from "../data/soldDevices"
+import { availableUnits, loadPhones, markUnitsSold } from "../data/phoneStock"
 
 export interface SaleCatalogProduct {
   id: string
@@ -39,17 +38,19 @@ export interface SaleCatalogProduct {
   price: number
   stock: number
   minStock: number
+  /** Celular con stock por IMEI: al vender se elige cada IMEI. */
+  tracksImei?: boolean
 }
 
 export interface CartItem extends SaleCatalogProduct {
   quantity: number
-  /** Un IMEI por unidad, solo para equipos (categoría "Equipos"). */
+  /** Un IMEI por unidad, solo para celulares (stock por IMEI). */
   imeis?: string[]
 }
 
 /** Ajusta la lista de IMEI a la cantidad de unidades del ítem. */
 function withQuantity(item: CartItem, quantity: number): CartItem {
-  if (!requiresImei(item.category)) return { ...item, quantity }
+  if (!item.tracksImei) return { ...item, quantity }
   const imeis = Array.from(
     { length: quantity },
     (_, index) => item.imeis?.[index] ?? "",
@@ -142,26 +143,6 @@ export const CATALOG_PRODUCTS: SaleCatalogProduct[] = [
     stock: 12,
     minStock: 4,
   },
-  {
-    id: "PRD-008",
-    code: "PRD-008",
-    barcode: "7790008",
-    name: "Samsung Galaxy S23 Ultra 256GB",
-    category: "Equipos",
-    price: 1450000,
-    stock: 2,
-    minStock: 1,
-  },
-  {
-    id: "PRD-009",
-    code: "PRD-009",
-    barcode: "7790009",
-    name: "Motorola Moto G54 128GB",
-    category: "Equipos",
-    price: 420000,
-    stock: 3,
-    minStock: 1,
-  },
 ]
 
 interface ToastAlert {
@@ -189,6 +170,26 @@ export function RegisterSaleForm({
   const [showSuggestions, setShowSuggestions] = useState(false)
   const [cart, setCart] = useState<CartItem[]>([])
   const [clientName, setClientName] = useState("")
+  // Celulares con stock por IMEI (compartido con Inventario)
+  const [phones, setPhones] = useState(loadPhones)
+  const catalog: SaleCatalogProduct[] = [
+    ...phones.map((phone) => ({
+      id: phone.id,
+      code: phone.id,
+      barcode: phone.id,
+      name: phone.name,
+      category: phone.category,
+      price: phone.price,
+      stock: availableUnits(phone, branchId).length,
+      minStock: phone.minStock,
+      tracksImei: true,
+    })),
+    ...CATALOG_PRODUCTS.filter((p) => !phones.some((ph) => ph.id === p.id)),
+  ]
+  const unitsFor = (productId: string) => {
+    const phone = phones.find((ph) => ph.id === productId)
+    return phone ? availableUnits(phone, branchId) : []
+  }
   const [currentDateTime, setCurrentDateTime] = useState(new Date())
 
   // Descuento
@@ -248,7 +249,7 @@ export function RegisterSaleForm({
 
   // Coincidencias limpias al escribir
   const matchingProducts = barcodeQuery.trim()
-    ? CATALOG_PRODUCTS.filter((p) => {
+    ? catalog.filter((p) => {
         const q = barcodeQuery.trim().toLowerCase()
         return (
           p.name.toLowerCase().includes(q) ||
@@ -285,7 +286,7 @@ export function RegisterSaleForm({
     })
   }
 
-  const handleAddProduct = (product: SaleCatalogProduct) => {
+  const handleAddProduct = (product: SaleCatalogProduct, scannedImei?: string) => {
     if (product.stock <= 0) {
       addToast(
         "error",
@@ -313,12 +314,32 @@ export function RegisterSaleForm({
       return
     }
 
+    if (scannedImei && existing?.imeis?.includes(scannedImei)) {
+      addToast(
+        "warning",
+        "IMEI ya agregado",
+        `El IMEI ${scannedImei} ya está en la venta.`,
+      )
+      setBarcodeQuery("")
+      return
+    }
+
+    const fillScanned = (item: CartItem): CartItem => {
+      if (!scannedImei || !item.imeis) return item
+      const imeis = [...item.imeis]
+      const slot = imeis.indexOf("")
+      if (slot >= 0) imeis[slot] = scannedImei
+      return { ...item, imeis }
+    }
+
     setCart((prev) =>
       existing
         ? prev.map((item) =>
-            item.id === product.id ? withQuantity(item, nextQty) : item,
+            item.id === product.id
+              ? fillScanned(withQuantity(item, nextQty))
+              : item,
           )
-        : [...prev, withQuantity({ ...product, quantity: 0 }, 1)],
+        : [...prev, fillScanned(withQuantity({ ...product, quantity: 0 }, 1))],
     )
     setBarcodeQuery("")
     setShowSuggestions(false)
@@ -330,8 +351,27 @@ export function RegisterSaleForm({
     const query = barcodeQuery.trim().toLowerCase()
     if (!query) return
 
+    // Escanear el IMEI de un celular agrega esa unidad exacta
+    const scanned = normalizeImei(query)
+    if (isValidImei(scanned)) {
+      const phone = phones.find((ph) =>
+        availableUnits(ph, branchId).some((u) => u.imei === scanned),
+      )
+      const product = phone && catalog.find((p) => p.id === phone.id)
+      if (product) {
+        handleAddProduct(product, scanned)
+        return
+      }
+      addToast(
+        "error",
+        "IMEI no disponible",
+        `El IMEI ${scanned} no está en el stock de esta sucursal.`,
+      )
+      return
+    }
+
     const exactOrFirst =
-      CATALOG_PRODUCTS.find(
+      catalog.find(
         (p) =>
           p.barcode.toLowerCase() === query || p.id.toLowerCase() === query,
       ) || matchingProducts[0]
@@ -387,19 +427,14 @@ export function RegisterSaleForm({
     )
   }
 
-  // Riesgo R4: no se puede vender un equipo sin IMEI válido
+  // Riesgo R4: no se puede vender un celular sin elegir su IMEI
   const imeiError = (() => {
     const all: string[] = []
     for (const item of cart) {
-      if (!requiresImei(item.category)) continue
-      for (const raw of item.imeis ?? []) {
-        const imei = normalizeImei(raw)
-        if (!imei) return `Falta cargar el IMEI de ${item.name}.`
-        if (!isValidImei(imei))
-          return `El IMEI ${imei} no es válido: debe tener 15 dígitos.`
+      if (!item.tracksImei) continue
+      for (const imei of item.imeis ?? []) {
+        if (!imei) return `Elegí el IMEI de cada unidad de ${item.name}.`
         if (all.includes(imei)) return `El IMEI ${imei} está repetido.`
-        if (isImeiAlreadySold(imei))
-          return `El IMEI ${imei} ya figura en otra venta.`
         all.push(imei)
       }
     }
@@ -505,6 +540,9 @@ export function RegisterSaleForm({
         })),
       ),
     )
+
+    markUnitsSold(record.items.flatMap((item) => item.imeis ?? []))
+    setPhones(loadPhones())
 
     onSaleRegistered?.(record)
     resetForm()
@@ -714,17 +752,18 @@ export function RegisterSaleForm({
                             <span className="block text-2xs font-mono text-slate-400 mt-0.5">
                               {item.id} • Cód: {item.barcode}
                             </span>
-                            {requiresImei(item.category) && (
+                            {item.tracksImei && (
                               <div className="mt-2 space-y-1.5">
                                 {(item.imeis ?? []).map((imei, index) => {
-                                  const invalid =
-                                    imei.trim() !== "" && !isValidImei(imei)
+                                  const takenElsewhere = (item.imeis ?? []).filter(
+                                    (other, i) => i !== index && other,
+                                  )
+                                  const options = unitsFor(item.id).filter(
+                                    (u) => !takenElsewhere.includes(u.imei),
+                                  )
                                   return (
-                                    <input
+                                    <select
                                       key={index}
-                                      type="text"
-                                      inputMode="numeric"
-                                      maxLength={20}
                                       value={imei}
                                       onChange={(e) =>
                                         updateItemImei(
@@ -733,14 +772,24 @@ export function RegisterSaleForm({
                                           e.target.value,
                                         )
                                       }
-                                      placeholder={`IMEI unidad ${index + 1} (obligatorio, 15 dígitos)`}
                                       aria-label={`IMEI unidad ${index + 1} de ${item.name}`}
                                       className={`block w-full max-w-xs px-2.5 py-1.5 text-xs font-mono rounded-lg border focus:outline-none focus:ring-2 ${
-                                        imei.trim() === "" || invalid
-                                          ? "border-rose-300 bg-rose-50/60 focus:ring-rose-200"
-                                          : "border-emerald-300 bg-emerald-50/60 focus:ring-emerald-200"
+                                        imei
+                                          ? "border-emerald-300 bg-emerald-50/60 focus:ring-emerald-200"
+                                          : "border-rose-300 bg-rose-50/60 focus:ring-rose-200"
                                       }`}
-                                    />
+                                    >
+                                      <option value="">
+                                        Elegí el IMEI de la unidad {index + 1}
+                                      </option>
+                                      {options.map((u) => (
+                                        <option key={u.imei} value={u.imei}>
+                                          {u.imei}
+                                          {!branchId &&
+                                            ` · ${branches.find((b) => b.id === u.branchId)?.name ?? u.branchId}`}
+                                        </option>
+                                      ))}
+                                    </select>
                                   )
                                 })}
                               </div>
