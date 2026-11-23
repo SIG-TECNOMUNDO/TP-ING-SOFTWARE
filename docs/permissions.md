@@ -5,9 +5,11 @@
 | Ver dashboard | Sí | Sí, su sucursal | Sí, su sucursal |
 | Consultar inventario | Sí | Sí, su sucursal | Sí, su sucursal |
 | Crear o editar productos | Sí | No | No |
+| Ver o editar precio de costo | Sí | No (la API no lo envía) | No (la API no lo envía) |
+| Consultar garantía por IMEI | Sí | Sí | Sí |
 | Consultar clientes | Sí | Sí | Sí |
 | Crear clientes | Sí | Sí | No |
-| Registrar ventas | Sí | Sí, su sucursal | No |
+| Registrar ventas (IMEI obligatorio en equipos) | Sí | Sí, su sucursal | No |
 | Crear órdenes | Sí | Sí, su sucursal | No |
 | Actualizar diagnóstico y estado | Sí | No | Sí, su sucursal |
 | Administrar usuarios | Sí | No | No |

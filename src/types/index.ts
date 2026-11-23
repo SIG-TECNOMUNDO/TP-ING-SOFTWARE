@@ -25,8 +25,13 @@ export type Product = {
   name: string
   category: string
   salePrice: number
+  /** Solo llega en la respuesta de la API para el rol Administrador. */
+  costPrice?: number | null
   minStock: number
   stocks: Stock[]
+  /** Celular: stock por IMEI. */
+  tracksImei?: boolean
+  availableUnits?: { imei: string; branchId: string }[]
 }
 export type Client = {
   id: string

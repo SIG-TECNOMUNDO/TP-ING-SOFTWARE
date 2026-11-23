@@ -1,4 +1,5 @@
 import React, { useMemo, useState, useEffect } from "react"
+import useBodyScrollLock from "../hooks/useBodyScrollLock"
 import { useSearchParams } from "react-router-dom"
 import {
   Card,
@@ -190,6 +191,7 @@ export default function CashFlow() {
 
   // Modal de Cierre de Caja Diario y Reporte (Accesible a cualquier empleado)
   const [isClosureModalOpen, setIsClosureModalOpen] = useState(false)
+  useBodyScrollLock(isClosureModalOpen)
   const [initialCashInput, setInitialCashInput] = useState("50000")
   const [countedCashInput, setCountedCashInput] = useState("")
   const [countedCardsInput, setCountedCardsInput] = useState("")
@@ -736,7 +738,7 @@ export default function CashFlow() {
       {/* Modal de Cierre de Caja Diario Simplificado (3 Bloques Directos) */}
       {isClosureModalOpen && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-3 sm:p-6 overflow-y-auto animate-fadeIn"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-3 sm:p-6 overflow-y-auto overscroll-contain animate-fadeIn"
           role="dialog"
           aria-modal="true"
           aria-labelledby="cash-closure-title"

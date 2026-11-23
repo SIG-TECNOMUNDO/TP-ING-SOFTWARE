@@ -8,6 +8,11 @@ import {
 } from "../auth/middleware.js"
 import { pool } from "../database/pool.js"
 import { AppError } from "../errors.js"
+import {
+  canSeeCostPrice,
+  stripCostPrice,
+} from "../domain/product-visibility.js"
+import { imeiListError, normalizeImei } from "../domain/imei.js"
 import type { AuthRequest } from "../types.js"
 
 export const productsRouter = Router()
@@ -18,6 +23,7 @@ const productSchema = z.object({
   name: z.string().min(2).max(180),
   category: z.string().min(2).max(80),
   salePrice: z.coerce.number().nonnegative(),
+  costPrice: z.coerce.number().nonnegative().nullable().optional(),
   minStock: z.coerce.number().int().nonnegative(),
   stocks: z.array(
     z.object({
@@ -25,7 +31,61 @@ const productSchema = z.object({
       quantity: z.coerce.number().int().nonnegative(),
     }),
   ),
+  /** Celulares: el stock se lleva por IMEI, una unidad por IMEI. */
+  tracksImei: z.boolean().default(false),
+  units: z
+    .array(z.object({ branchId: z.string().uuid(), imei: z.string().max(30) }))
+    .default([]),
 })
+
+type Db = Pick<import("pg").PoolClient, "query">
+
+/**
+ * Sincroniza las unidades disponibles (IMEI) de un celular y recalcula su
+ * stock por sucursal a partir de ellas. Las unidades vendidas no se tocan.
+ */
+async function syncDeviceUnits(
+  db: Db,
+  productId: string,
+  units: { branchId: string; imei: string }[],
+) {
+  const normalized = units.map((unit) => ({
+    branchId: unit.branchId,
+    imei: normalizeImei(unit.imei),
+  }))
+  const error = imeiListError(normalized.map((unit) => unit.imei))
+  if (error) throw new AppError(400, error)
+  const imeis = normalized.map((unit) => unit.imei)
+  const conflict = await db.query<{ imei: string }>(
+    `SELECT imei FROM device_units
+     WHERE imei = ANY($1::text[]) AND (product_id <> $2 OR status <> 'AVAILABLE') LIMIT 1`,
+    [imeis, productId],
+  )
+  if (conflict.rowCount)
+    throw new AppError(
+      409,
+      `El IMEI ${conflict.rows[0]!.imei} ya está cargado en otro producto o fue vendido`,
+    )
+  await db.query(
+    `DELETE FROM device_units WHERE product_id=$1 AND status='AVAILABLE' AND NOT (imei = ANY($2::text[]))`,
+    [productId, imeis],
+  )
+  for (const unit of normalized) {
+    await db.query(
+      `INSERT INTO device_units (product_id, branch_id, imei) VALUES ($1, $2, $3)
+       ON CONFLICT (imei) DO UPDATE SET branch_id = EXCLUDED.branch_id`,
+      [productId, unit.branchId, unit.imei],
+    )
+  }
+  await db.query(
+    `INSERT INTO branch_stock (branch_id, product_id, quantity)
+     SELECT b.id, $1, COUNT(du.id) FROM branches b
+     LEFT JOIN device_units du ON du.branch_id = b.id AND du.product_id = $1 AND du.status = 'AVAILABLE'
+     GROUP BY b.id
+     ON CONFLICT (branch_id, product_id) DO UPDATE SET quantity = EXCLUDED.quantity`,
+    [productId],
+  )
+}
 
 productsRouter.get(
   "/",
@@ -40,7 +100,12 @@ productsRouter.get(
       typeof request.query.category === "string" ? request.query.category : ""
     const result = await pool.query(
       `SELECT p.id, p.code, p.name, c.name AS category, p.sale_price::float AS "salePrice",
-            p.min_stock AS "minStock",
+            p.cost_price::float AS "costPrice", p.min_stock AS "minStock",
+            p.tracks_imei AS "tracksImei",
+            (SELECT COALESCE(json_agg(json_build_object('imei', du.imei, 'branchId', du.branch_id) ORDER BY du.imei), '[]')
+               FROM device_units du
+              WHERE du.product_id = p.id AND du.status = 'AVAILABLE'
+                AND ($3::uuid IS NULL OR du.branch_id = $3)) AS "availableUnits",
             COALESCE(json_agg(json_build_object('branchId', b.id, 'branchName', b.name, 'quantity', bs.quantity)
               ORDER BY b.name) FILTER (WHERE b.id IS NOT NULL), '[]') AS stocks
      FROM products p JOIN categories c ON c.id = p.category_id
@@ -53,7 +118,7 @@ productsRouter.get(
      GROUP BY p.id, c.name ORDER BY p.name`,
       [search, category, branchId],
     )
-    response.json({ data: result.rows })
+    response.json({ data: stripCostPrice(result.rows, request.user!.role) })
   },
 )
 
@@ -105,22 +170,28 @@ productsRouter.post(
         [input.category],
       )
       const result = await db.query<{ id: string }>(
-        `INSERT INTO products (code, name, category_id, sale_price, min_stock)
-       VALUES ($1, $2, $3, $4, $5) RETURNING id`,
+        `INSERT INTO products (code, name, category_id, sale_price, min_stock, cost_price, tracks_imei)
+       VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id`,
         [
           input.code,
           input.name,
           category.rows[0]?.id,
           input.salePrice,
           input.minStock,
+          canSeeCostPrice(request.user!.role) ? (input.costPrice ?? null) : null,
+          input.tracksImei,
         ],
       )
-      const id = result.rows[0]?.id
-      for (const stock of input.stocks) {
-        await db.query(
-          `INSERT INTO branch_stock (branch_id, product_id, quantity) VALUES ($1, $2, $3)`,
-          [stock.branchId, id, stock.quantity],
-        )
+      const id = result.rows[0]!.id
+      if (input.tracksImei) {
+        await syncDeviceUnits(db, id, input.units)
+      } else {
+        for (const stock of input.stocks) {
+          await db.query(
+            `INSERT INTO branch_stock (branch_id, product_id, quantity) VALUES ($1, $2, $3)`,
+            [stock.branchId, id, stock.quantity],
+          )
+        }
       }
       await audit(db, request.user!.id, "CREATE", "product", id ?? null)
       await db.query("COMMIT")
@@ -148,7 +219,8 @@ productsRouter.put(
         [input.category],
       )
       const result = await db.query(
-        `UPDATE products SET code=$1,name=$2,category_id=$3,sale_price=$4,min_stock=$5,updated_at=now()
+        `UPDATE products SET code=$1,name=$2,category_id=$3,sale_price=$4,min_stock=$5,
+         cost_price=CASE WHEN $7::boolean THEN $8::numeric ELSE cost_price END,tracks_imei=$9,updated_at=now()
        WHERE id=$6 AND active=true`,
         [
           input.code,
@@ -157,15 +229,22 @@ productsRouter.put(
           input.salePrice,
           input.minStock,
           id,
+          canSeeCostPrice(request.user!.role) && input.costPrice !== undefined,
+          input.costPrice ?? null,
+          input.tracksImei,
         ],
       )
       if (!result.rowCount) throw new AppError(404, "Producto no encontrado")
-      for (const stock of input.stocks) {
-        await db.query(
-          `INSERT INTO branch_stock (branch_id,product_id,quantity) VALUES ($1,$2,$3)
-         ON CONFLICT (branch_id,product_id) DO UPDATE SET quantity=EXCLUDED.quantity`,
-          [stock.branchId, id, stock.quantity],
-        )
+      if (input.tracksImei) {
+        await syncDeviceUnits(db, id, input.units)
+      } else {
+        for (const stock of input.stocks) {
+          await db.query(
+            `INSERT INTO branch_stock (branch_id,product_id,quantity) VALUES ($1,$2,$3)
+           ON CONFLICT (branch_id,product_id) DO UPDATE SET quantity=EXCLUDED.quantity`,
+            [stock.branchId, id, stock.quantity],
+          )
+        }
       }
       await audit(db, request.user!.id, "UPDATE", "product", id)
       await db.query("COMMIT")

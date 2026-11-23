@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from "react"
+import useBodyScrollLock from "../hooks/useBodyScrollLock"
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom"
 import {
   LayoutDashboard,
@@ -85,6 +86,7 @@ const initialNotifications: NotificationItem[] = [
 
 export default function DashboardLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  useBodyScrollLock(sidebarOpen)
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false)
   const [notificationsOpen, setNotificationsOpen] = useState(false)
   const [notifications, setNotifications] =

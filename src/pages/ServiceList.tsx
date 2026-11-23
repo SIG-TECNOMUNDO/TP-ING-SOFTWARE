@@ -18,6 +18,7 @@ import {
   X,
 } from "lucide-react"
 import { Link } from "react-router-dom"
+import WarrantyLookup from "../components/WarrantyLookup"
 
 interface ServiceOrderRow {
   id: string
@@ -207,6 +208,9 @@ export default function ServiceList() {
           </Button>
         </Link>
       </div>
+
+      {/* Reingreso por garantía: validar la venta del equipo por IMEI */}
+      <WarrantyLookup />
 
       {/* 4 Contadores de Estado Horizontales y Compactos (en una sola línea limpia) */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5">

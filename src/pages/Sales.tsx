@@ -15,6 +15,7 @@ import {
   TrendingUp,
   ShoppingBag,
 } from "lucide-react"
+import WarrantyLookup from "../components/WarrantyLookup"
 import RegisterSaleModal, {
   RegisterSaleForm,
   SaleRecord,
@@ -138,6 +139,9 @@ export default function Sales() {
       {/* Formulario Principal de Punto de Venta integrado en la vista */}
       <RegisterSaleForm onSaleRegistered={handleSaleRegistered} />
 
+      {/* Validación de garantía por IMEI */}
+      <WarrantyLookup />
+
       {/* Historial de Operaciones Recientes del Turno */}
       <Card className="overflow-hidden">
         <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
@@ -198,6 +202,17 @@ export default function Sales() {
                           .join(", ")}
                       </span>
                     </div>
+                    {sale.items.some((i) => i.imeis?.length) && (
+                      <span className="block mt-1 text-2xs font-mono text-slate-500">
+                        IMEI:{" "}
+                        {sale.items.flatMap((i) => i.imeis ?? []).join(", ")}
+                      </span>
+                    )}
+                    {sale.client && (
+                      <span className="block text-2xs text-slate-400">
+                        Cliente: {sale.client}
+                      </span>
+                    )}
                   </td>
                   <td className="px-4 sm:px-5 py-3.5 whitespace-nowrap">
                     <div className="flex items-center gap-3 text-2xs text-slate-500">

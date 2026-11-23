@@ -1,4 +1,4 @@
-import React, { useState } from "react"
+import React, { useEffect, useState } from "react"
 import {
   Card,
   Button,
@@ -10,6 +10,17 @@ import {
   TablePagination,
 } from "../components/ui"
 import Modal from "../components/Modal"
+import { useAuth } from "../context/AuthContext"
+import {
+  BRANCH_ALTA,
+  BRANCH_YOFRE,
+  loadPhones,
+  savePhones,
+  type PhoneProduct,
+  type PhoneUnit,
+} from "../data/phoneStock"
+import { isImeiAlreadySold, isValidImei } from "../data/soldDevices"
+import ImeiUnitsEditor, { type ImeiUnitDraft } from "../components/ImeiUnitsEditor"
 import {
   Search,
   Plus,
@@ -31,10 +42,46 @@ interface InventoryItem {
   name: string
   category: string
   price: number
+  /** Precio de costo: solo lo ve y edita el Administrador (riesgo R6). */
+  costPrice?: number
   stockYofre: number
   stockAlta: number
   minStock: number
+  /** Celular: el stock se lleva por IMEI, una unidad por IMEI. */
+  tracksImei?: boolean
+  units?: PhoneUnit[]
 }
+
+const countAvailable = (units: PhoneUnit[], branchId: string) =>
+  units.filter((u) => u.status === "AVAILABLE" && u.branchId === branchId)
+    .length
+
+const phoneToItem = (phone: PhoneProduct): InventoryItem => ({
+  ...phone,
+  tracksImei: true,
+  stockYofre: countAvailable(phone.units, BRANCH_YOFRE),
+  stockAlta: countAvailable(phone.units, BRANCH_ALTA),
+})
+
+const itemToPhone = (item: InventoryItem): PhoneProduct => ({
+  id: item.id,
+  name: item.name,
+  category: item.category,
+  price: item.price,
+  costPrice: item.costPrice,
+  minStock: item.minStock,
+  units: item.units ?? [],
+})
+
+const availableDrafts = (units: PhoneUnit[] | undefined): ImeiUnitDraft[] =>
+  (units ?? [])
+    .filter((u) => u.status === "AVAILABLE")
+    .map(({ imei, branchId }) => ({ imei, branchId }))
+
+const IMEI_BRANCHES = [
+  { id: BRANCH_YOFRE, label: "Yofre" },
+  { id: BRANCH_ALTA, label: "Alta Cba" },
+]
 
 const initialInventory: InventoryItem[] = [
   {
@@ -42,24 +89,17 @@ const initialInventory: InventoryItem[] = [
     name: "Módulo Display iPhone 13 Pro",
     category: "Repuestos",
     price: 125000,
+    costPrice: 75000,
     stockYofre: 3,
     stockAlta: 2,
     minStock: 3,
-  },
-  {
-    id: "PRD-002",
-    name: "Samsung Galaxy S23 Ultra 256GB",
-    category: "Equipos",
-    price: 1450000,
-    stockYofre: 1,
-    stockAlta: 1,
-    minStock: 1,
   },
   {
     id: "PRD-003",
     name: "Funda Silicona MagSafe iPhone 14",
     category: "Accesorios",
     price: 15000,
+    costPrice: 6000,
     stockYofre: 12,
     stockAlta: 8,
     minStock: 5,
@@ -69,6 +109,7 @@ const initialInventory: InventoryItem[] = [
     name: "Batería Original Motorola G22",
     category: "Repuestos",
     price: 35000,
+    costPrice: 21000,
     stockYofre: 0,
     stockAlta: 2,
     minStock: 3,
@@ -78,6 +119,7 @@ const initialInventory: InventoryItem[] = [
     name: "Auriculares JBL Tune 510BT",
     category: "Audio",
     price: 45000,
+    costPrice: 27000,
     stockYofre: 5,
     stockAlta: 6,
     minStock: 4,
@@ -87,6 +129,7 @@ const initialInventory: InventoryItem[] = [
     name: "Cargador Samsung 25W Tipo C",
     category: "Accesorios",
     price: 22000,
+    costPrice: 12000,
     stockYofre: 15,
     stockAlta: 10,
     minStock: 10,
@@ -108,13 +151,26 @@ interface ProductFormState {
   name: string
   category: string
   price: string
+  costPrice: string
   stockYofre: string
   stockAlta: string
   minStock: string
+  tracksImei: boolean
+  imeiUnits: ImeiUnitDraft[]
 }
 
 export default function Inventory() {
-  const [inventory, setInventory] = useState<InventoryItem[]>(initialInventory)
+  const { user } = useAuth()
+  const isAdmin = user?.role === "ADMIN"
+  const [inventory, setInventory] = useState<InventoryItem[]>(() => [
+    ...loadPhones().map(phoneToItem),
+    ...initialInventory,
+  ])
+
+  // Los celulares se comparten con Ventas (stock por IMEI)
+  useEffect(() => {
+    savePhones(inventory.filter((item) => item.tracksImei).map(itemToPhone))
+  }, [inventory])
   const [searchTerm, setSearchTerm] = useState("")
   const [categoryFilter, setCategoryFilter] = useState("Todas las categorías")
   const [currentPage, setCurrentPage] = useState(1)
@@ -135,9 +191,12 @@ export default function Inventory() {
     name: "",
     category: "Repuestos",
     price: "",
+    costPrice: "",
     stockYofre: "0",
     stockAlta: "0",
     minStock: "3",
+    tracksImei: false,
+    imeiUnits: [],
   })
   const [productFormError, setProductFormError] = useState<string | null>(null)
 
@@ -165,9 +224,12 @@ export default function Inventory() {
       name: "",
       category: "Repuestos",
       price: "",
+      costPrice: "",
       stockYofre: "0",
       stockAlta: "0",
       minStock: "3",
+      tracksImei: false,
+      imeiUnits: [],
     })
     setEditingOriginalId(null)
     setProductFormError(null)
@@ -181,9 +243,12 @@ export default function Inventory() {
       name: item.name,
       category: item.category,
       price: String(item.price),
+      costPrice: item.costPrice != null ? String(item.costPrice) : "",
       stockYofre: String(item.stockYofre),
       stockAlta: String(item.stockAlta),
       minStock: String(item.minStock),
+      tracksImei: Boolean(item.tracksImei),
+      imeiUnits: availableDrafts(item.units),
     })
     setEditingOriginalId(item.id)
     setProductFormError(null)
@@ -194,6 +259,20 @@ export default function Inventory() {
     setProductModalMode(null)
     setEditingOriginalId(null)
     setProductFormError(null)
+  }
+
+  // IMEI ya vendido o cargado en otro producto
+  const imeiConflict = (imei: string) => {
+    const ownSold = inventory
+      .find((item) => item.id === editingOriginalId)
+      ?.units?.some((u) => u.imei === imei && u.status === "SOLD")
+    if (ownSold || isImeiAlreadySold(imei)) return "ya fue vendido"
+    const other = inventory.find(
+      (item) =>
+        item.id !== editingOriginalId &&
+        item.units?.some((u) => u.imei === imei),
+    )
+    return other ? `ya está cargado en ${other.name}` : null
   }
 
   // Guardar Producto (Alta o Edición completa)
@@ -220,6 +299,18 @@ export default function Inventory() {
       setProductFormError("Ingresá un precio de venta válido mayor a 0.")
       return
     }
+    const numCost =
+      productForm.costPrice.trim() === ""
+        ? undefined
+        : Number(productForm.costPrice)
+    if (isAdmin && numCost !== undefined && (isNaN(numCost) || numCost < 0)) {
+      setProductFormError("Ingresá un precio de costo válido.")
+      return
+    }
+    // Solo el Administrador puede cambiar el costo; el resto conserva el actual
+    const previousCost = inventory.find(
+      (item) => item.id === editingOriginalId,
+    )?.costPrice
 
     const duplicateSku = inventory.some(
       (item) =>
@@ -231,14 +322,70 @@ export default function Inventory() {
       return
     }
 
+    // Celulares: un IMEI por unidad, sin repetidos ni ya vendidos
+    let units: PhoneUnit[] | undefined
+    if (productForm.tracksImei) {
+      const all = productForm.imeiUnits.map((u) => u.imei)
+      const invalid = all.filter((imei) => !isValidImei(imei))
+      if (invalid.length === 1) {
+        setProductFormError(
+          `El IMEI ${invalid[0]} no es válido: debe tener 15 dígitos.`,
+        )
+        return
+      }
+      if (invalid.length > 1) {
+        setProductFormError(
+          `Hay ${invalid.length} IMEI no válidos (deben tener 15 dígitos): ${invalid.join(", ")}.`,
+        )
+        return
+      }
+      const repeated = [
+        ...new Set(all.filter((imei, index) => all.indexOf(imei) !== index)),
+      ]
+      if (repeated.length === 1) {
+        setProductFormError(`El IMEI ${repeated[0]} está cargado dos veces.`)
+        return
+      }
+      if (repeated.length > 1) {
+        setProductFormError(
+          `Hay ${repeated.length} IMEI cargados dos veces: ${repeated.join(", ")}.`,
+        )
+        return
+      }
+      const previousUnits =
+        inventory.find((item) => item.id === editingOriginalId)?.units ?? []
+      const soldUnits = previousUnits.filter((u) => u.status === "SOLD")
+      const usedElsewhere = all.find((imei) => imeiConflict(imei) !== null)
+      if (usedElsewhere) {
+        setProductFormError(
+          `El IMEI ${usedElsewhere} ya está cargado en otro producto o fue vendido.`,
+        )
+        return
+      }
+      units = [
+        ...soldUnits,
+        ...productForm.imeiUnits.map((u) => ({
+          ...u,
+          status: "AVAILABLE" as const,
+        })),
+      ]
+    }
+
     const updatedItem: InventoryItem = {
       id: cleanId,
       name: cleanName,
       category: productForm.category,
       price: Math.round(numPrice),
-      stockYofre: numYofre,
-      stockAlta: numAlta,
+      costPrice: isAdmin
+        ? numCost !== undefined
+          ? Math.round(numCost)
+          : undefined
+        : previousCost,
+      stockYofre: units ? countAvailable(units, BRANCH_YOFRE) : numYofre,
+      stockAlta: units ? countAvailable(units, BRANCH_ALTA) : numAlta,
       minStock: numMin,
+      tracksImei: productForm.tracksImei,
+      units,
     }
 
     if (productModalMode === "create") {
@@ -500,6 +647,11 @@ export default function Inventory() {
                 <th className="px-5 py-3.5 text-left text-2xs font-bold text-slate-500 uppercase tracking-wider">
                   Precio de Venta
                 </th>
+                {isAdmin && (
+                  <th className="px-5 py-3.5 text-left text-2xs font-bold text-slate-500 uppercase tracking-wider">
+                    Costo / Margen
+                  </th>
+                )}
                 <th className="px-5 py-3.5 text-center text-2xs font-bold text-slate-500 uppercase tracking-wider">
                   Stock Yofre
                 </th>
@@ -546,6 +698,11 @@ export default function Inventory() {
                         <span className="block text-2xs text-slate-400 font-mono">
                           {item.id} • Mínimo alerta: {item.minStock} un.
                         </span>
+                        {item.tracksImei && (
+                          <span className="mt-1 inline-block rounded-full bg-blue-50 border border-blue-200 px-2 py-0.5 text-3xs font-bold text-[#00559D]">
+                            Stock por IMEI
+                          </span>
+                        )}
                       </button>
                     </td>
 
@@ -568,6 +725,31 @@ export default function Inventory() {
                     <td className="px-5 py-4 whitespace-nowrap text-xs sm:text-sm font-bold font-mono text-slate-900">
                       $ {item.price.toLocaleString("es-AR")}
                     </td>
+
+                    {isAdmin && (
+                      <td className="px-5 py-4 whitespace-nowrap text-xs font-mono text-slate-600">
+                        {item.costPrice != null ? (
+                          <>
+                            <span className="block font-semibold">
+                              $ {item.costPrice.toLocaleString("es-AR")}
+                            </span>
+                            <span className="block text-2xs text-emerald-600 font-semibold">
+                              Margen{" "}
+                              {item.price > 0
+                                ? Math.round(
+                                    ((item.price - item.costPrice) /
+                                      item.price) *
+                                      100,
+                                  )
+                                : 0}
+                              %
+                            </span>
+                          </>
+                        ) : (
+                          <span className="text-slate-400">Sin cargar</span>
+                        )}
+                      </td>
+                    )}
 
                     <td className="px-5 py-4 whitespace-nowrap text-center">
                       <span
@@ -724,6 +906,28 @@ export default function Inventory() {
               />
             </div>
 
+            {isAdmin && (
+              <div>
+                <Label htmlFor="prod-cost" className="whitespace-nowrap">
+                  Precio de Costo ($) · solo visible para Administración
+                </Label>
+                <Input
+                  id="prod-cost"
+                  type="number"
+                  min="0"
+                  value={productForm.costPrice}
+                  onChange={(e) =>
+                    setProductForm((prev) => ({
+                      ...prev,
+                      costPrice: e.target.value,
+                    }))
+                  }
+                  placeholder="Ej. 50000"
+                  className="font-mono"
+                />
+              </div>
+            )}
+
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 items-end">
               <div>
                 <Label htmlFor="prod-price" className="whitespace-nowrap">
@@ -771,53 +975,84 @@ export default function Inventory() {
               <span className="block text-2xs uppercase tracking-wider font-bold text-slate-500">
                 Disponibilidad por Sucursal
               </span>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 items-end">
-                <div>
-                  <Label
-                    htmlFor="prod-stock-yofre"
-                    className="whitespace-nowrap truncate"
-                  >
-                    Stock Yofre (un.)
-                  </Label>
-                  <Input
-                    id="prod-stock-yofre"
-                    type="number"
-                    min="0"
-                    required
-                    value={productForm.stockYofre}
-                    onChange={(e) =>
-                      setProductForm((prev) => ({
-                        ...prev,
-                        stockYofre: e.target.value,
-                      }))
-                    }
-                    className="font-mono bg-white"
-                  />
-                </div>
+              <label className="flex items-start gap-2 rounded-xl border border-slate-200 bg-white p-2.5 cursor-pointer">
+                <input
+                  type="checkbox"
+                  className="mt-0.5 h-4 w-4 rounded border-slate-300 text-primary"
+                  checked={productForm.tracksImei}
+                  onChange={(e) =>
+                    setProductForm((prev) => ({
+                      ...prev,
+                      tracksImei: e.target.checked,
+                    }))
+                  }
+                />
+                <span className="text-xs text-slate-700">
+                  <strong>Es celular (controla IMEI)</strong>
+                  <span className="block text-2xs text-slate-500">
+                    Se carga un IMEI por unidad y el stock se calcula solo.
+                    Al vender se elige el IMEI exacto.
+                  </span>
+                </span>
+              </label>
+              {productForm.tracksImei ? (
+                <ImeiUnitsEditor
+                  units={productForm.imeiUnits}
+                  onChange={(imeiUnits) =>
+                    setProductForm((prev) => ({ ...prev, imeiUnits }))
+                  }
+                  branches={IMEI_BRANCHES}
+                  checkImei={imeiConflict}
+                />
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 items-end">
+                  <div>
+                    <Label
+                      htmlFor="prod-stock-yofre"
+                      className="whitespace-nowrap truncate"
+                    >
+                      Stock Yofre (un.)
+                    </Label>
+                    <Input
+                      id="prod-stock-yofre"
+                      type="number"
+                      min="0"
+                      required
+                      value={productForm.stockYofre}
+                      onChange={(e) =>
+                        setProductForm((prev) => ({
+                          ...prev,
+                          stockYofre: e.target.value,
+                        }))
+                      }
+                      className="font-mono bg-white"
+                    />
+                  </div>
 
-                <div>
-                  <Label
-                    htmlFor="prod-stock-alta"
-                    className="whitespace-nowrap truncate"
-                  >
-                    Stock Alta Cba (un.)
-                  </Label>
-                  <Input
-                    id="prod-stock-alta"
-                    type="number"
-                    min="0"
-                    required
-                    value={productForm.stockAlta}
-                    onChange={(e) =>
-                      setProductForm((prev) => ({
-                        ...prev,
-                        stockAlta: e.target.value,
-                      }))
-                    }
-                    className="font-mono bg-white"
-                  />
+                  <div>
+                    <Label
+                      htmlFor="prod-stock-alta"
+                      className="whitespace-nowrap truncate"
+                    >
+                      Stock Alta Cba (un.)
+                    </Label>
+                    <Input
+                      id="prod-stock-alta"
+                      type="number"
+                      min="0"
+                      required
+                      value={productForm.stockAlta}
+                      onChange={(e) =>
+                        setProductForm((prev) => ({
+                          ...prev,
+                          stockAlta: e.target.value,
+                        }))
+                      }
+                      className="font-mono bg-white"
+                    />
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
 
             <div className="flex justify-end gap-2.5 pt-3 border-t border-slate-100">

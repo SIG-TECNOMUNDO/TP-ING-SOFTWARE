@@ -1,4 +1,5 @@
 import React, { useState } from "react"
+import useBodyScrollLock from "../hooks/useBodyScrollLock"
 import {
   Card,
   Button,
@@ -420,6 +421,7 @@ export default function Clients() {
   const selectedClient = selectedClientId
     ? clients.find((c) => c.id === selectedClientId) || null
     : null
+  useBodyScrollLock(Boolean(selectedClient))
 
   const openCreateClientModal = () => {
     setClientForm({
@@ -643,7 +645,7 @@ export default function Clients() {
       {/* Modal / Pop-up centrado de "Ficha del Cliente" */}
       {selectedClient && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 overflow-y-auto animate-fadeIn"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 overflow-y-auto overscroll-contain animate-fadeIn"
           role="dialog"
           aria-modal="true"
           aria-labelledby="client-profile-modal-title"
