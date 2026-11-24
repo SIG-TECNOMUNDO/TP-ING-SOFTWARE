@@ -7,6 +7,7 @@ import CashFlow from "./pages/CashFlow"
 
 // Pages
 import Login from "./pages/Login"
+import Presentation from "./pages/Presentation"
 import Dashboard from "./pages/Dashboard"
 import Inventory from "./pages/Inventory"
 import Sales from "./pages/Sales"
@@ -19,6 +20,7 @@ import Admin from "./pages/Admin"
 export default function App() {
   return (
     <Routes>
+      <Route path="/presentacion" element={<Presentation />} />
       <Route path="/login" element={<Login />} />
       <Route
         element={
